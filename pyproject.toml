@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+requires-python = ">=3.11,<3.13"
+name = "lib"
+# La versión se obtiene automáticamente de git con `setuptools_scm`
+#version = "0.1.0"
+description = "Librería Python de ejemplo"
+readme = "README.md"
+authors = [{ name = "Weather Routing Research", email = "daniel.precioso@ie.edu" }]
+dynamic = ["version"]
+dependencies = [
+    "pandas",
+    "fastapi",
+    "uvicorn",
+    "typer-slim",
+    "jax>=0.4.33",
+    "matplotlib>=3.9.2",
+    "cma>=4.0.0",
+]
+
+[project.urls]
+homepage = "https://github.com/Weather-Routing-Research/cmaes_bezier_demo"
+
+[project.scripts]
+main = "lib.main:main"
+
+[tool.setuptools]
+packages = ["lib"]
+
+[tool.setuptools_scm]
+# Importante crear esta sección vacia para activar el plugin
+
+[tool.ruff]
+line-length = 88
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle
+    "F", # Pyflakes
+    "UP", # pyupgrade
+    "B", # flake8-bugbear
+    "SIM", # flake8-simplify
+    "I", # isort
+    "D", # pydocstyle
+    "C401",  # flake8-comprehensions: unnecessary-generator-set
+    "C402",  # flake8-comprehensions: unnecessary-generator-dict
+    "C403",  # flake8-comprehensions: unnecessary-list-comprehension-set
+    "C404",  # flake8-comprehensions: unnecessary-list-comprehension-dict
+    "C405",  # flake8-comprehensions: unnecessary-literal-set
+    "W605",  # pycodestyle: invalid-escape-sequence
+]
+
+# Ignore D100 Missing docstring in public module
+ignore = ["D100"]
+[tool.ruff.lint.per-file-ignores]
+# Also ignore `D104` in all `__init__.py` files.
+"__init__.py" = ["D104"]
+"tests/*.py" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.mypy]
+files = "./lib"
+strict = true
+warn_unreachable = true
+ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+
+[tool.pytest.ini_options]
+minversion = "7"
+testpaths = ["tests"]
+log_cli_level = "INFO"
+xfail_strict = true
+addopts = ["-ra", "--strict-config", "--strict-markers"]
+filterwarnings = ["error", "ignore::DeprecationWarning"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest",
+    "ruff",
+    "mypy",
+    "pre-commit",
+    "ipykernel",
+]
+
+
