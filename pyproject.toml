@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 requires-python = ">=3.11,<3.13"
-name = "lib"
+name = "demo"
 # La versión se obtiene automáticamente de git con `setuptools_scm`
 #version = "0.1.0"
-description = "Librería Python de ejemplo"
+description = "Weather Routing Research CMA-ES Bezier Demo"
 readme = "README.md"
 authors = [{ name = "Weather Routing Research", email = "daniel.precioso@ie.edu" }]
 dynamic = ["version"]
@@ -25,10 +25,10 @@ dependencies = [
 homepage = "https://github.com/Weather-Routing-Research/cmaes_bezier_demo"
 
 [project.scripts]
-main = "lib.main:main"
+main = "demo.main:main"
 
 [tool.setuptools]
-packages = ["lib"]
+packages = ["demo"]
 
 [tool.setuptools_scm]
 # Importante crear esta sección vacia para activar el plugin
@@ -63,7 +63,7 @@ ignore = ["D100"]
 convention = "numpy"
 
 [tool.mypy]
-files = "./lib"
+files = "./demo"
 strict = true
 warn_unreachable = true
 ignore_missing_imports = true
