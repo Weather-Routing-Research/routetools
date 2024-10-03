@@ -1,6 +1,7 @@
 import time
 from collections.abc import Callable
 from functools import partial
+from typing import Any
 
 import cma
 import jax
@@ -117,7 +118,7 @@ def optimize(
     sigma0: float | None = None,
     tolfun: float = 1e-4,
     verbose: bool = True,
-    **kwargs,
+    **kwargs: dict[str, Any],
 ) -> jnp.ndarray:
     """
     Solve the vessel routing problem for a given vector field.
@@ -194,7 +195,7 @@ def main(gpu: bool = True) -> None:
     The vector field is a superposition of four vortices.
     """
     if not gpu:
-        jax.config.update("jax_platforms", "cpu")  # type: ignore
+        jax.config.update("jax_platforms", "cpu")  # type: ignore[no-untyped-call]
 
     # Check if JAX is using the GPU
     print("JAX devices:", jax.devices())
