@@ -56,7 +56,7 @@ def control_to_curve(
 def cost_function(
     vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
     curve: jnp.ndarray,
-    sog: jnp.ndarray = None,
+    sog: jnp.ndarray | None = None,
     travel_stw: float | None = None,
     travel_time: float | None = None,
 ) -> jnp.ndarray:
@@ -88,8 +88,8 @@ def cost_function(
         if travel_time is not None:
             # The times between points are only relevant when travel_time is set
             dt = travel_time / (curve.shape[1] - 1)
-            # If the SOG is not provided, but we need to compute the cost at constant time,
-            # we compute the speed over ground from the displacement
+            # If the SOG is not provided, but we need to compute the cost at constant
+            # time, we compute the speed over ground from the displacement
             dxdt = dx / dt
             dydt = dy / dt
     elif (sog is not None) and (travel_time is not None):
@@ -97,8 +97,6 @@ def cost_function(
         # we will take the vector field at that point
         curvex = curve[:, :, 0]
         curvey = curve[:, :, 1]
-        # We can't compute distances between points
-        dx, dy = None, None
         # The time between points is the total travel time
         dt = travel_time
         # We can compute the displacements over ground

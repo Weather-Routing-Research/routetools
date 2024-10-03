@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from functools import partial
 from typing import Any
 
 import jax
@@ -12,7 +11,24 @@ from demo.cmaes import cost_function
 from demo.vectorfield import vectorfield_fourvortices
 
 
-def hessian(f: Callable, argnums: int = 0):
+def hessian(
+    f: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray], argnums: int = 0
+) -> Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]:
+    """
+    Compute the Hessian of a function.
+
+    Parameters
+    ----------
+    f : Callable
+        Function to differentiate.
+    argnums : int, optional
+        Argument number to differentiate, by default 0
+
+    Returns
+    -------
+    Callable
+        Hessian of the function.
+    """
     return jacfwd(jacrev(f, argnums=argnums), argnums=argnums)
 
 
@@ -28,6 +44,38 @@ def optimize_fms(
     verbose: bool = True,
     **kwargs: dict[str, Any],
 ) -> jnp.ndarray:
+    """
+    Optimize a curve using the FMS algorithm.
+
+    Source:
+    https://doi.org/10.1016/j.ifacol.2021.11.097
+
+    Parameters
+    ----------
+    vectorfield : Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]]
+        Vector field function.
+    src : jnp.ndarray | None, optional
+        Origin point, by default None
+    dst : jnp.ndarray | None, optional
+        Destination point, by default None
+    curve : jnp.ndarray | None, optional
+        Curve to optimize, shape L x 2, by default None
+    travel_stw : float | None, optional
+        Fixed speed through water, by default None
+    travel_time : float | None, optional
+        Fixed travel time, by default None
+    tolfun : float, optional
+        Tolerance for the cost reduction between epochs, by default 1e-4
+    damping : float, optional
+        Damping factor, by default 0.9
+    verbose : bool, optional
+        Print optimization progress, by default True
+
+    Returns
+    -------
+    jnp.ndarray
+        Optimized curve with shape L x 2
+    """
     # Initialize solution
     if (src is not None) and (dst is not None):
         # Make a straight line between src and dst
@@ -43,7 +91,7 @@ def optimize_fms(
         d = jnp.mean(jnp.linalg.norm(curve[:, 1:] - curve[:, :-1], axis=-1))
         h = float(d / travel_stw)
 
-        def lagrangian(q0: jnp.array, q1: jnp.array) -> jnp.array:
+        def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
             q0 = q0[None, None, :]
             q1 = q1[None, None, :]
             sog = (q1 - q0) / h
@@ -59,7 +107,7 @@ def optimize_fms(
     elif travel_time is not None:
         h = float(travel_time / curve.shape[0])
 
-        def lagrangian(q0: jnp.array, q1: jnp.array) -> jnp.array:
+        def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
             q0 = q0[None, None, :]
             q1 = q1[None, None, :]
             sog = (q1 - q0) / h
@@ -76,15 +124,16 @@ def optimize_fms(
     d11ld = hessian(lagrangian, argnums=0)
     d22ld = hessian(lagrangian, argnums=1)
 
-    def optimize(qkm1: jnp.array, qk: jnp.array, qkp1: jnp.array) -> jnp.array:
+    def optimize(qkm1: jnp.ndarray, qk: jnp.ndarray, qkp1: jnp.ndarray) -> jnp.ndarray:
         b = -d2ld(qkm1, qk) - d1ld(qk, qkp1)
         a = d22ld(qkm1, qk) + d11ld(qk, qkp1)
-        return jnp.linalg.solve(a, b)
+        q: jnp.ndarray = jnp.linalg.solve(a, b)
+        return q
 
     optim_vect = vmap(optimize, in_axes=(0, 0, 0), out_axes=(0))
 
-    @partial(jit, static_argnums=(1,))
-    def optimize_distance(curve: jnp.array, damping: float = damping) -> jnp.array:
+    @jit
+    def optimize_distance(curve: jnp.ndarray) -> jnp.ndarray:
         curve_new = jnp.copy(curve)
         q = optim_vect(curve[:-2], curve[1:-1], curve[2:])
         return curve_new.at[1:-1].set(damping * q + curve[1:-1])
@@ -104,7 +153,7 @@ def optimize_fms(
         curve = optimize_distance(curve)
         cost_now = cost_function(
             vectorfield,
-            curve[None, ...],
+            curve[None, ...],  # type: ignore[index]
             travel_stw=travel_stw,
             travel_time=travel_time,
         )[0]
@@ -113,7 +162,7 @@ def optimize_fms(
         if verbose and idx % 50 == 0:
             print(f"Iteration {idx}: cost = {cost_now:.3f} | delta = {delta:.3f}")
 
-    return curve
+    return curve  # type: ignore[return-value]
 
 
 def main(gpu: bool = True, optimize_time: bool = False) -> None:
