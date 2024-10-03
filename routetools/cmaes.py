@@ -257,7 +257,8 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     plt.plot(curve[:, 0], curve[:, 1], color="red")
     plt.plot(src[0], src[1], "o", color="blue")
     plt.plot(dst[0], dst[1], "o", color="green")
-    plt.savefig("output/demo.png")
+    label = "time" if optimize_time else "speed"
+    plt.savefig(f"output/main_cmaes_{label}.png")
     plt.close()
 
 

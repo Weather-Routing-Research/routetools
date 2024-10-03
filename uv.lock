@@ -202,7 +202,7 @@ wheels = [
 ]
 
 [[package]]
-name = "demo"
+name = "routetools"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

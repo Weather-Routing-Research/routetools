@@ -6,7 +6,7 @@ setup(
     packages=find_packages(),
     install_requires=["jax", "jaxlib", "matplotlib", "numpy", "scipy"],
     author="Weather Routing Research",
-    description="A demo project for CMA-ES and Bezier curves",
+    description="Routing tools for continuous vector fields",
     long_description_content_type="text/markdown",
     url="https://github.com/Weather-Routing-Research/cmaes_bezier_demo",
     classifiers=[

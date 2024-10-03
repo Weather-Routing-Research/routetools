@@ -2,8 +2,8 @@
 .PHONY: install hooks hooks-update ruff test mypy docker build run debug push
 
 SHELL=/bin/bash
-DOCKER_IMG_NAME=ghcr.io/Weather-Routing-Research/cmaes_bezier_demo
-DOCKER_CONTAINER=demo
+DOCKER_IMG_NAME=ghcr.io/Weather-Routing-Research/cmaes_bezier_routetools
+DOCKER_CONTAINER=routetools
 GH_USER=GITHUB_USERNAME
 GH_TOKEN_FILE=GITHUB_TOKEN_PATH
 
