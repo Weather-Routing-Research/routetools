@@ -183,7 +183,7 @@ def optimize(
     return curve_best
 
 
-def main(gpu: bool = True):
+def main(gpu: bool = True) -> None:
     """
     Demonstrate usage of the optimization algorithm.
 
