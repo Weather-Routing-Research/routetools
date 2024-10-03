@@ -4,10 +4,12 @@ import cma
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+from jax import jit
 
-from demo.vectorfield import vectorfield_fourvortices
+from demo.vectorfield import vectorfield_swirlys
 
 
+@jit
 def batch_bezier(t: jnp.ndarray, control: jnp.ndarray) -> jnp.ndarray:
     """
     Evaluate a batch of Bézier curves (using de Casteljau's algorithm).
@@ -180,21 +182,25 @@ def main():
     The vector field is a superposition of four vortices.
     """
     src = np.array([0, 0])
-    dst = np.array([6, 2])
+    dst = np.array([6, 5])
 
     curve = optimize(
-        vectorfield_fourvortices,
+        vectorfield_swirlys,
         src=src,
         dst=dst,
-        travel_speed=1,
-        travel_time=None,
-        tolfun=1e-3,
+        travel_speed=None,
+        travel_time=30,
+        popsize=1000,
+        tolfun=1e-4,
     )
 
-    x = np.arange(-1, 7, 0.25)
-    y = np.arange(-1, 7, 0.25)
+    xmin, xmax = curve[:, 0].min(), curve[:, 0].max()
+    ymin, ymax = curve[:, 1].min(), curve[:, 1].max()
+
+    x = np.arange(xmin, xmax, 0.5)
+    y = np.arange(ymin, ymax, 0.5)
     X, Y = np.meshgrid(x, y)
-    U, V = vectorfield_fourvortices(X, Y)
+    U, V = vectorfield_swirlys(X, Y)
 
     plt.figure()
     plt.quiver(X, Y, U, V)
