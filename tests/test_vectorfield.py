@@ -11,7 +11,9 @@ from demo.vectorfield import vectorfield_fourvortices
         (1, 1, -0.4663, 0.2295),
     ],
 )
-def test_vectorfield_fourvortices(x, y, u_expected, v_expected):
+def test_vectorfield_fourvortices(
+    x: float, y: float, u_expected: float, v_expected: float
+):
     """
     Test the vectorfield_fourvortices function.
     """

@@ -47,12 +47,13 @@ def control_to_curve(
     first_point = jnp.broadcast_to(src, (control.shape[0], 1, 2))
     last_point = jnp.broadcast_to(dst, (control.shape[0], 1, 2))
     control = jnp.hstack([first_point, control, last_point])
-    return batch_bezier(t=jnp.linspace(0, 1, L), control=control)
+    result: jnp.ndarray = batch_bezier(t=jnp.linspace(0, 1, L), control=control)
+    return result
 
 
 @partial(jit, static_argnums=(0, 2, 3))
 def cost_function(
-    vectorfield: Callable,
+    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
     curve: jnp.ndarray,
     travel_speed: float | None = None,
     travel_time: float | None = None,
@@ -85,6 +86,8 @@ def cost_function(
     if travel_time is None:  # We navigate the path at fixed speed
         # Source: Zermelo's problem for constant wind
         # https://en.wikipedia.org/wiki/Zermelo%27s_navigation_problem#Constant-wind_case
+        if travel_speed is None:
+            raise ValueError("travel_speed must be provided when travel_time is None")
         v2 = travel_speed**2
         w2 = uinterp**2 + vinterp**2
         dw = delta_x * uinterp + delta_y * vinterp
@@ -103,7 +106,7 @@ def cost_function(
 
 
 def optimize(
-    vectorfield: Callable,
+    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
     src: jnp.ndarray,
     dst: jnp.ndarray,
     travel_speed: float | None = None,
@@ -164,7 +167,7 @@ def optimize(
 
     x0 = np.linspace(src, dst, K).flatten()  # initial solution
     # initial standard deviation to sample new solutions
-    sigma0 = np.linalg.norm(dst - src) if sigma0 is None else sigma0
+    sigma0 = float(np.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
     es = cma.CMAEvolutionStrategy(
         x0, sigma0, inopts={"popsize": popsize, "tolfun": tolfun} | kwargs
     )
@@ -191,13 +194,13 @@ def main(gpu: bool = True) -> None:
     The vector field is a superposition of four vortices.
     """
     if not gpu:
-        jax.config.update("jax_platforms", "cpu")
+        jax.config.update("jax_platforms", "cpu")  # type: ignore
 
     # Check if JAX is using the GPU
     print("JAX devices:", jax.devices())
 
-    src = np.array([0, 0])
-    dst = np.array([6, 2])
+    src = jnp.array([0, 0])
+    dst = jnp.array([6, 2])
 
     curve = optimize(
         vectorfield_fourvortices,
@@ -213,9 +216,9 @@ def main(gpu: bool = True) -> None:
     xmin, xmax = curve[:, 0].min(), curve[:, 0].max()
     ymin, ymax = curve[:, 1].min(), curve[:, 1].max()
 
-    x = np.arange(xmin, xmax, 0.5)
-    y = np.arange(ymin, ymax, 0.5)
-    X, Y = np.meshgrid(x, y)
+    x: jnp.ndarray = jnp.arange(xmin, xmax, 0.5)
+    y: jnp.ndarray = jnp.arange(ymin, ymax, 0.5)
+    X, Y = jnp.meshgrid(x, y)
     U, V = vectorfield_fourvortices(X, Y)
 
     plt.figure()
