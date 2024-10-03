@@ -47,20 +47,24 @@ def optimize_fms(
             q0 = q0[None, None, :]
             q1 = q1[None, None, :]
             sog = (q1 - q0) / h
-            l1 = cost_function(vectorfield, q0, sog=sog, travel_stw=travel_stw)
-            l2 = cost_function(vectorfield, q1, sog=sog, travel_stw=travel_stw)
+            l1 = cost_function(
+                vectorfield, q0, sog=sog, travel_stw=travel_stw, travel_time=h
+            )
+            l2 = cost_function(
+                vectorfield, q1, sog=sog, travel_stw=travel_stw, travel_time=h
+            )
             ld = jnp.sum(h / 2 * (l1**2 + l2**2))
             return ld
 
     elif travel_time is not None:
-        h = float(travel_time / curve.shape[1])
+        h = float(travel_time / curve.shape[0])
 
         def lagrangian(q0: jnp.array, q1: jnp.array) -> jnp.array:
             q0 = q0[None, None, :]
             q1 = q1[None, None, :]
             sog = (q1 - q0) / h
-            l1 = cost_function(vectorfield, q0, sog, travel_time=travel_time)
-            l2 = cost_function(vectorfield, q1, sog, travel_time=travel_time)
+            l1 = cost_function(vectorfield, q0, sog=sog, travel_time=h)
+            l2 = cost_function(vectorfield, q1, sog=sog, travel_time=h)
             ld = jnp.sum(h / 2 * (l1 + l2))
             return ld
 
@@ -90,7 +94,7 @@ def optimize_fms(
         curve[None, ...],
         travel_stw=travel_stw,
         travel_time=travel_time,
-    )
+    )[0]
     delta = jnp.inf
 
     # Loop iterations
@@ -98,14 +102,12 @@ def optimize_fms(
     while delta >= tolfun:
         cost_old = cost_now
         curve = optimize_distance(curve)
-        cost_now = float(
-            cost_function(
-                vectorfield,
-                curve[None, ...],
-                travel_stw=travel_stw,
-                travel_time=travel_time,
-            )[0]
-        )
+        cost_now = cost_function(
+            vectorfield,
+            curve[None, ...],
+            travel_stw=travel_stw,
+            travel_time=travel_time,
+        )[0]
         delta = 1 - cost_now / cost_old
         idx += 1
         if verbose and idx % 50 == 0:
@@ -114,7 +116,7 @@ def optimize_fms(
     return curve
 
 
-def main(gpu: bool = True):
+def main(gpu: bool = True, optimize_time: bool = False) -> None:
     """
     Demonstrate usage of the optimization algorithm.
 
@@ -133,8 +135,8 @@ def main(gpu: bool = True):
         vectorfield_fourvortices,
         src=src,
         dst=dst,
-        travel_stw=1,
-        travel_time=None,
+        travel_stw=None if optimize_time else 1,
+        travel_time=10 if optimize_time else None,
         tolfun=1e-6,
     )
 

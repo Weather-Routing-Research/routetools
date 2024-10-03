@@ -69,47 +69,70 @@ def cost_function(
 
     :param vectorfield: a function that returns the horizontal and vertical components
     of the vector field.
-    :param curve: batch of trajectories (an array of shape B x L x 2)
+    :param curve: batch of trajectories (an array of shape B x L x 2).
     :param sog: batch of speeds over ground, SOG (an array of shape B x L-1 x 2)
     :param travel_stw: the boat will have this fixed speed through water, STW.
-    If set, then `travel_time` must be None
-    :param travel_time: the boat can regulate its STW but must complete
-    each path in exactly this time. If set, then `travel_stw` must be None
+    :param travel_time: When the curve is a single point, this is the time delta. Else,
+    the boat can regulate its STW but must complete each path in exactly this time.
     :param L: number of points evaluated in each Bézier curve
     :return: a batch of scalars (vector of shape B)
     """
-    if sog is None:
+    if curve.shape[1] > 1:
+        # When the curve is defined by more than one point,
+        # we will interpolate the vector field at the midpoints
         curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
         curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
-        # Curve segments
-        delta_x = jnp.diff(curve[:, :, 0], axis=1)
-        delta_y = jnp.diff(curve[:, :, 1], axis=1)
-    else:
+        # We can also compute the distances between points
+        dx = jnp.diff(curve[:, :, 0], axis=1)
+        dy = jnp.diff(curve[:, :, 1], axis=1)
+        if travel_time is not None:
+            # The times between points are only relevant when travel_time is set
+            dt = travel_time / (curve.shape[1] - 1)
+            # If the SOG is not provided, but we need to compute the cost at constant time,
+            # we compute the speed over ground from the displacement
+            dxdt = dx / dt
+            dydt = dy / dt
+    elif (sog is not None) and (travel_time is not None):
+        # If the curve is defined by a single point,
+        # we will take the vector field at that point
         curvex = curve[:, :, 0]
         curvey = curve[:, :, 1]
-        delta_x, delta_y = sog[:, :, 0], sog[:, :, 1]
+        # We can't compute distances between points
+        dx, dy = None, None
+        # The time between points is the total travel time
+        dt = travel_time
+        # We can compute the displacements over ground
+        dxdt = sog[:, :, 0]
+        dydt = sog[:, :, 1]
+        dx = dxdt * dt
+        dy = dydt * dt
+    else:
+        raise ValueError(
+            "When curve has only one point, SOG and travel_time must be provided"
+        )
 
+    # Interpolate the vector field at the midpoints
     uinterp, vinterp = vectorfield(curvex, curvey)
 
-    if travel_time is None:  # We navigate the path at fixed speed through water (STW)
+    if travel_stw is not None:
+        # We navigate the path at fixed speed through water (STW)
         # Source: Zermelo's problem for constant wind
         # https://en.wikipedia.org/wiki/Zermelo%27s_navigation_problem#Constant-wind_case
-        if travel_stw is None:
-            raise ValueError("travel_stw must be provided when travel_time is None")
         v2 = travel_stw**2
         w2 = uinterp**2 + vinterp**2
-        dw = delta_x * uinterp + delta_y * vinterp
-        d2 = delta_x**2 + delta_y**2  # Segment lengths
+        dw = dx * uinterp + dy * vinterp
+        d2 = dx**2 + dy**2  # Segment lengths
         cost = jnp.sqrt(d2 / (v2 - w2) + dw**2 / (v2 - w2) ** 2) - dw / (v2 - w2)
         cost = jnp.where(
             v2 <= w2, float("inf"), cost
         )  # Current > speed -> infeasible path
         total_cost = jnp.sum(cost, axis=1)
-    else:  # We must navigate the path in a fixed time
-        L = curve.shape[1]
-        T = travel_time / (L - 1)
-        cost = ((delta_x / T - uinterp) ** 2 + (delta_y / T - vinterp) ** 2) / 2
-        total_cost = jnp.sum(cost, axis=1) * T
+    elif travel_time is not None:
+        # We must navigate the path in a fixed time
+        cost = ((dxdt - uinterp) ** 2 + (dydt - vinterp) ** 2) / 2
+        total_cost = jnp.sum(cost, axis=1) * dt
+    else:
+        raise ValueError("travel_stw must be provided when travel_time is None")
     return total_cost
 
 
@@ -197,7 +220,7 @@ def optimize(
     return curve_best
 
 
-def main(gpu: bool = True) -> None:
+def main(gpu: bool = True, optimize_time: bool = False) -> None:
     """
     Demonstrate usage of the optimization algorithm.
 
@@ -216,8 +239,8 @@ def main(gpu: bool = True) -> None:
         vectorfield_fourvortices,
         src=src,
         dst=dst,
-        travel_stw=1,
-        travel_time=None,
+        travel_stw=None if optimize_time else 1,
+        travel_time=10 if optimize_time else None,
         popsize=1000,
         sigma0=5,
         tolfun=1e-6,
