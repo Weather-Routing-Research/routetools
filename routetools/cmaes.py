@@ -11,7 +11,7 @@ import numpy as np
 import typer
 from jax import jit
 
-from demo.vectorfield import vectorfield_fourvortices
+from routetools.vectorfield import vectorfield_fourvortices
 
 
 @jit

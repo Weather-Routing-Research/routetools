@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import typer
 from jax import grad, jacfwd, jacrev, jit, vmap
 
-from demo.cmaes import cost_function
-from demo.vectorfield import vectorfield_fourvortices
+from routetools.cmaes import cost_function
+from routetools.vectorfield import vectorfield_fourvortices
 
 
 def hessian(
