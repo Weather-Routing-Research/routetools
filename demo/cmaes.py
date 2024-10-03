@@ -189,9 +189,7 @@ def main(gpu: bool = True):
 
     The vector field is a superposition of four vortices.
     """
-    if gpu:
-        jax.config.update("jax_platforms", "gpu")
-    else:
+    if not gpu:
         jax.config.update("jax_platforms", "cpu")
 
     # Check if JAX is using the GPU
@@ -206,7 +204,7 @@ def main(gpu: bool = True):
         dst=dst,
         travel_speed=1,
         travel_time=None,
-        popsize=1000,
+        popsize=10000,
         sigma0=5,
         tolfun=1e-6,
     )
