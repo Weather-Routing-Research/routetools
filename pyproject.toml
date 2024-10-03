@@ -19,6 +19,7 @@ dependencies = [
     "jax[cuda12]>=0.4.33",
     "matplotlib>=3.9.2",
     "cma>=4.0.0",
+    "pytest>=8.3.2",
 ]
 
 [project.urls]

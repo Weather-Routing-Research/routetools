@@ -211,6 +211,7 @@ dependencies = [
     { name = "jax", extra = ["cuda12"] },
     { name = "matplotlib" },
     { name = "pandas" },
+    { name = "pytest" },
     { name = "typer-slim" },
     { name = "uvicorn" },
 ]
@@ -231,6 +232,7 @@ requires-dist = [
     { name = "jax", extras = ["cuda12"], specifier = ">=0.4.33" },
     { name = "matplotlib", specifier = ">=3.9.2" },
     { name = "pandas" },
+    { name = "pytest", specifier = ">=8.3.2" },
     { name = "typer-slim" },
     { name = "uvicorn" },
 ]
