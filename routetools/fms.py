@@ -46,9 +46,9 @@ def random_piecewise_curve(
     for idx_route in range(num_curves):
         x_start, y_start = src
         x_end, y_end = dst
-        x_pts = [x_start]
-        y_pts = [y_start]
-        dist = []
+        x_pts: list[jnp.ndarray] = [x_start]
+        y_pts: list[jnp.ndarray] = [y_start]
+        ls_d: list[jnp.ndarray] = []
         for idx_seg in range(num_segments[idx_route] - 1):
             dx = x_end - x_pts[-1]
             dy = y_end - y_pts[-1]
@@ -57,11 +57,11 @@ def random_piecewise_curve(
             d = jnp.sqrt(dx**2 + dy**2) * ls_dist[idx_route * 5 + idx_seg]
             x_pts.append(x_pts[-1] + d * jnp.cos(ang + ang_dev))
             y_pts.append(y_pts[-1] + d * jnp.sin(ang + ang_dev))
-            dist.append(d)
+            ls_d.append(d)
         x_pts.append(x_end)
         y_pts.append(y_end)
-        dist.append(jnp.sqrt((x_end - x_pts[-2]) ** 2 + (y_end - y_pts[-2]) ** 2))
-        dist = jnp.array(dist).flatten()
+        ls_d.append(jnp.sqrt((x_end - x_pts[-2]) ** 2 + (y_end - y_pts[-2]) ** 2))
+        dist = jnp.array(ls_d).flatten()
         # To ensure the points of the route are equi-distant,
         # the number of points per segment will depend on its distance
         # in relation to the total distance travelled
@@ -70,13 +70,10 @@ def random_piecewise_curve(
         x = jnp.array([x_start])
         y = jnp.array([y_start])
         for idx_seg in range(num_segments[idx_route]):
-            x_new = jnp.linspace(
-                x_pts[idx_seg], x_pts[idx_seg + 1], num_points_seg[idx_seg] + 1
-            ).flatten()
+            nps: int = int(num_points_seg[idx_seg]) + 1
+            x_new = jnp.linspace(x_pts[idx_seg], x_pts[idx_seg + 1], nps).flatten()
             x = jnp.concatenate([x, x_new[1:]])
-            y_new = jnp.linspace(
-                y_pts[idx_seg], y_pts[idx_seg + 1], num_points_seg[idx_seg] + 1
-            ).flatten()
+            y_new = jnp.linspace(y_pts[idx_seg], y_pts[idx_seg + 1], nps).flatten()
             y = jnp.concatenate([y, y_new[1:]])
         # Ensure the total number of points matches num_points
         if len(x) < num_points:
@@ -249,7 +246,7 @@ def optimize_fms(
         curve = solve_vectorized(curve)
         cost_now = cost_function(
             vectorfield,
-            curve,  # type: ignore[index]
+            curve,
             travel_stw=travel_stw,
             travel_time=travel_time,
         )
@@ -286,7 +283,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
         num_points=200,
         travel_stw=None if optimize_time else 1,
         travel_time=10 if optimize_time else None,
-        tolfun=1e-6,
+        tolfun=1e-4,
     )
 
     xmin, xmax = curve[..., 0].min(), curve[..., 0].max()
