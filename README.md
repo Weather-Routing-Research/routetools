@@ -41,7 +41,7 @@ Install package and pinned dependencies with the [`uv`](https://docs.astral.sh/u
 4. Run any command or Python script with `uv run`, for instance:
 
    ```{bash}
-   uv run demo/main.py
+   uv run demo/cmaes.py
    ```
 
    Alternatively, you can also activate the virtual env and run the scripts normally:
