@@ -2,9 +2,11 @@ import time
 from functools import partial
 
 import cma
+import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+import typer
 from jax import jit
 
 from demo.vectorfield import vectorfield_fourvortices
@@ -181,12 +183,20 @@ def optimize(
     return curve_best
 
 
-def main():
+def main(gpu: bool = True):
     """
     Demonstrate usage of the optimization algorithm.
 
     The vector field is a superposition of four vortices.
     """
+    if gpu:
+        jax.config.update("jax_platforms", "gpu")
+    else:
+        jax.config.update("jax_platforms", "cpu")
+
+    # Check if JAX is using the GPU
+    print("JAX devices:", jax.devices())
+
     src = np.array([0, 0])
     dst = np.array([6, 2])
 
@@ -219,4 +229,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
