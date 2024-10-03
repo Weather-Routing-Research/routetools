@@ -5,8 +5,8 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import typer
 
-from demo.cmaes import optimize
-from demo.vectorfield import vectorfield_fourvortices
+from routetools.cmaes import optimize
+from routetools.vectorfield import vectorfield_fourvortices
 
 
 def main(gpu: bool = True) -> None:

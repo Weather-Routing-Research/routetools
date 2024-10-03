@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import pytest
 
-from demo.vectorfield import vectorfield_fourvortices
+from routetools.vectorfield import vectorfield_fourvortices
 
 
 @pytest.mark.parametrize(
