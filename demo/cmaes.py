@@ -1,4 +1,5 @@
 import time
+from functools import partial
 
 import cma
 import jax.numpy as jnp
@@ -6,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from jax import jit
 
-from demo.vectorfield import vectorfield_swirlys
+from demo.vectorfield import vectorfield_fourvortices
 
 
 @jit
@@ -26,6 +27,7 @@ def batch_bezier(t: jnp.ndarray, control: jnp.ndarray) -> jnp.ndarray:
     return control[:, 0, ...]
 
 
+@partial(jit, static_argnums=(3,))
 def control_to_curve(
     control: jnp.ndarray, src: jnp.ndarray, dst: jnp.ndarray, L: int = 64
 ) -> jnp.ndarray:
@@ -45,6 +47,7 @@ def control_to_curve(
     return batch_bezier(t=jnp.linspace(0, 1, L), control=control)
 
 
+@partial(jit, static_argnums=(0, 2, 3))
 def cost_function(
     vectorfield: callable,
     curve: jnp.ndarray,
@@ -105,6 +108,7 @@ def optimize(
     K: int = 6,
     L: int = 64,
     popsize: int = 200,
+    sigma0: float | None = None,
     tolfun: float = 1e-4,
     verbose: bool = True,
     **kwargs,
@@ -139,6 +143,8 @@ def optimize(
         Number of points evaluated in each Bézier curve. By default 64
     popsize : int, optional
         Population size for the CMA-ES optimizer. By default 200
+    sigma0 : float, optional
+        Initial standard deviation to sample new solutions. By default None
     tolfun : float, optional
         Tolerance for the optimizer. By default 1e-4
     verbose : bool, optional
@@ -155,7 +161,7 @@ def optimize(
 
     x0 = np.linspace(src, dst, K).flatten()  # initial solution
     # initial standard deviation to sample new solutions
-    sigma0 = np.linalg.norm(dst - src)
+    sigma0 = np.linalg.norm(dst - src) if sigma0 is None else sigma0
     es = cma.CMAEvolutionStrategy(
         x0, sigma0, inopts={"popsize": popsize, "tolfun": tolfun} | kwargs
     )
@@ -182,16 +188,17 @@ def main():
     The vector field is a superposition of four vortices.
     """
     src = np.array([0, 0])
-    dst = np.array([6, 5])
+    dst = np.array([6, 2])
 
     curve = optimize(
-        vectorfield_swirlys,
+        vectorfield_fourvortices,
         src=src,
         dst=dst,
-        travel_speed=None,
-        travel_time=30,
+        travel_speed=1,
+        travel_time=None,
         popsize=1000,
-        tolfun=1e-4,
+        sigma0=5,
+        tolfun=1e-6,
     )
 
     xmin, xmax = curve[:, 0].min(), curve[:, 0].max()
@@ -200,7 +207,7 @@ def main():
     x = np.arange(xmin, xmax, 0.5)
     y = np.arange(ymin, ymax, 0.5)
     X, Y = np.meshgrid(x, y)
-    U, V = vectorfield_swirlys(X, Y)
+    U, V = vectorfield_fourvortices(X, Y)
 
     plt.figure()
     plt.quiver(X, Y, U, V)
