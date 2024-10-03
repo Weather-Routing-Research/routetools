@@ -1,3 +1,4 @@
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -161,6 +162,8 @@ def optimize_fms(
     jnp.ndarray
         Optimized curve with shape L x 2
     """
+    start = time.time()
+
     # Initialize solution
     if (src is not None) and (dst is not None):
         curve = random_piecewise_curve(
@@ -252,10 +255,10 @@ def optimize_fms(
         )
         delta = 1 - cost_now / cost_old
         idx += 1
-        if verbose and idx % 50 == 0:
-            cost_avg = jnp.mean(cost_now)
-            delta_avg = jnp.mean(delta)
-            print(f"Iteration {idx}: cost = {cost_avg:.3f} | delta = {delta_avg:.3f}")
+
+    if verbose:
+        print("Optimization time:", time.time() - start)
+        print("Fuel cost:", cost_now.min())
 
     return curve  # type: ignore[return-value]
 
@@ -283,7 +286,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
         num_points=200,
         travel_stw=None if optimize_time else 1,
         travel_time=10 if optimize_time else None,
-        tolfun=1e-4,
+        tolfun=1e-6,
     )
 
     xmin, xmax = curve[..., 0].min(), curve[..., 0].max()
