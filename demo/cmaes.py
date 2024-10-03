@@ -52,44 +52,51 @@ def control_to_curve(
     return result
 
 
-@partial(jit, static_argnums=(0, 2, 3))
+@partial(jit, static_argnums=(0, 3, 4))
 def cost_function(
     vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
     curve: jnp.ndarray,
-    travel_speed: float | None = None,
+    sog: jnp.ndarray = None,
+    travel_stw: float | None = None,
     travel_time: float | None = None,
 ) -> jnp.ndarray:
     """
     Compute the fuel consumption of a batch of paths navigating over a vector field.
 
     Two modes are supported:
-    - Fixed travel speed (w.r.t. water)
+    - Fixed travel speed through water (STW)
     - Fixed travel time.
 
     :param vectorfield: a function that returns the horizontal and vertical components
     of the vector field.
     :param curve: batch of trajectories (an array of shape B x L x 2)
-    :param travel_speed: the boat will have this fixed speed w.r.t. the water.
+    :param sog: batch of speeds over ground, SOG (an array of shape B x L-1 x 2)
+    :param travel_stw: the boat will have this fixed speed through water, STW.
     If set, then `travel_time` must be None
-    :param travel_time: the boat can regulate its speed but must complete
-    each path in exactly this time. If set, then `travel_speed` must be None
+    :param travel_time: the boat can regulate its STW but must complete
+    each path in exactly this time. If set, then `travel_stw` must be None
     :param L: number of points evaluated in each Bézier curve
     :return: a batch of scalars (vector of shape B)
     """
-    curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
-    curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
+    if sog is None:
+        curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
+        curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
+        # Curve segments
+        delta_x = jnp.diff(curve[:, :, 0], axis=1)
+        delta_y = jnp.diff(curve[:, :, 1], axis=1)
+    else:
+        curvex = curve[:, :, 0]
+        curvey = curve[:, :, 1]
+        delta_x, delta_y = sog[:, :, 0], sog[:, :, 1]
+
     uinterp, vinterp = vectorfield(curvex, curvey)
 
-    # Curve segments
-    delta_x = jnp.diff(curve[:, :, 0], axis=1)
-    delta_y = jnp.diff(curve[:, :, 1], axis=1)
-
-    if travel_time is None:  # We navigate the path at fixed speed
+    if travel_time is None:  # We navigate the path at fixed speed through water (STW)
         # Source: Zermelo's problem for constant wind
         # https://en.wikipedia.org/wiki/Zermelo%27s_navigation_problem#Constant-wind_case
-        if travel_speed is None:
-            raise ValueError("travel_speed must be provided when travel_time is None")
-        v2 = travel_speed**2
+        if travel_stw is None:
+            raise ValueError("travel_stw must be provided when travel_time is None")
+        v2 = travel_stw**2
         w2 = uinterp**2 + vinterp**2
         dw = delta_x * uinterp + delta_y * vinterp
         d2 = delta_x**2 + delta_y**2  # Segment lengths
@@ -110,7 +117,7 @@ def optimize(
     vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
     src: jnp.ndarray,
     dst: jnp.ndarray,
-    travel_speed: float | None = None,
+    travel_stw: float | None = None,
     travel_time: float | None = None,
     K: int = 6,
     L: int = 64,
@@ -138,12 +145,12 @@ def optimize(
         Source point (2D)
     dst : jnp.ndarray
         Destination point (2D)
-    travel_speed : float, optional
-        The boat will have this fixed speed w.r.t. the water.
+    travel_stw : float, optional
+        The boat will have this fixed speed through water (STW).
         If set, then `travel_time` must be None. By default None
     travel_time : float, optional
-        The boat can regulate its speed but must complete the path in exactly this time.
-        If set, then `travel_speed` must be None
+        The boat can regulate its STW but must complete the path in exactly this time.
+        If set, then `travel_stw` must be None
     K : int, optional
         Number of free Bézier control points. By default 6
     L : int, optional
@@ -175,7 +182,9 @@ def optimize(
     while not es.stop():
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L)
-        cost = cost_function(vectorfield, curve, travel_speed, travel_time)
+        cost = cost_function(
+            vectorfield, curve, travel_stw=travel_stw, travel_time=travel_time
+        )
         es.tell(X, cost.tolist())  # update the optimizer
         if verbose:
             es.disp()
@@ -207,7 +216,7 @@ def main(gpu: bool = True) -> None:
         vectorfield_fourvortices,
         src=src,
         dst=dst,
-        travel_speed=1,
+        travel_stw=1,
         travel_time=None,
         popsize=1000,
         sigma0=5,
