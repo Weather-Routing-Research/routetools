@@ -124,18 +124,19 @@ def optimize_fms(
     d11ld = hessian(lagrangian, argnums=0)
     d22ld = hessian(lagrangian, argnums=1)
 
-    def optimize(qkm1: jnp.ndarray, qk: jnp.ndarray, qkp1: jnp.ndarray) -> jnp.ndarray:
+    @jit
+    def jacobian(qkm1: jnp.ndarray, qk: jnp.ndarray, qkp1: jnp.ndarray) -> jnp.ndarray:
         b = -d2ld(qkm1, qk) - d1ld(qk, qkp1)
         a = d22ld(qkm1, qk) + d11ld(qk, qkp1)
         q: jnp.ndarray = jnp.linalg.solve(a, b)
         return q
 
-    optim_vect = vmap(optimize, in_axes=(0, 0, 0), out_axes=(0))
+    jac_vectorized = vmap(jacobian, in_axes=(0, 0, 0), out_axes=(0))
 
     @jit
-    def optimize_distance(curve: jnp.ndarray) -> jnp.ndarray:
+    def solve_equation(curve: jnp.ndarray) -> jnp.ndarray:
         curve_new = jnp.copy(curve)
-        q = optim_vect(curve[:-2], curve[1:-1], curve[2:])
+        q = jac_vectorized(curve[:-2], curve[1:-1], curve[2:])
         return curve_new.at[1:-1].set(damping * q + curve[1:-1])
 
     cost_now = cost_function(
@@ -150,7 +151,7 @@ def optimize_fms(
     idx = 0
     while delta >= tolfun:
         cost_old = cost_now
-        curve = optimize_distance(curve)
+        curve = solve_equation(curve)
         cost_now = cost_function(
             vectorfield,
             curve[None, ...],  # type: ignore[index]
