@@ -1,4 +1,5 @@
 import time
+from collections.abc import Callable
 from functools import partial
 
 import cma
@@ -51,7 +52,7 @@ def control_to_curve(
 
 @partial(jit, static_argnums=(0, 2, 3))
 def cost_function(
-    vectorfield: callable,
+    vectorfield: Callable,
     curve: jnp.ndarray,
     travel_speed: float | None = None,
     travel_time: float | None = None,
@@ -102,7 +103,7 @@ def cost_function(
 
 
 def optimize(
-    vectorfield: callable,
+    vectorfield: Callable,
     src: jnp.ndarray,
     dst: jnp.ndarray,
     travel_speed: float | None = None,
@@ -179,7 +180,7 @@ def optimize(
         print("Fuel cost:", es.best.f)
 
     Xbest = es.best.x[None, :]
-    curve_best = control_to_curve(Xbest, src, dst, L=L)[0, ...]
+    curve_best: jnp.ndarray = control_to_curve(Xbest, src, dst, L=L)[0, ...]
     return curve_best
 
 
@@ -204,7 +205,7 @@ def main(gpu: bool = True) -> None:
         dst=dst,
         travel_speed=1,
         travel_time=None,
-        popsize=10000,
+        popsize=1000,
         sigma0=5,
         tolfun=1e-6,
     )
