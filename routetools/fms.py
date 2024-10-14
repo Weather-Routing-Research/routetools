@@ -198,6 +198,7 @@ def optimize_fms(
             return ld
 
     elif travel_time is not None:
+        assert travel_time > 0, "Travel time must be positive"
         h = float(travel_time / curve.shape[0])
 
         def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
@@ -230,7 +231,7 @@ def optimize_fms(
     def solve_equation(curve: jnp.ndarray) -> jnp.ndarray:
         curve_new = jnp.copy(curve)
         q = jac_vectorized(curve[:-2], curve[1:-1], curve[2:])
-        return curve_new.at[1:-1].set(damping * q + curve[1:-1])
+        return curve_new.at[1:-1].set((1 - damping) * q + curve[1:-1])
 
     solve_vectorized = vmap(solve_equation, in_axes=(0), out_axes=(0))
 
