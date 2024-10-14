@@ -199,7 +199,7 @@ def optimize_fms(
 
     elif travel_time is not None:
         assert travel_time > 0, "Travel time must be positive"
-        h = float(travel_time / curve.shape[0])
+        h = float(travel_time / curve.shape[1])
 
         def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
             q0 = q0[None, None, :]
