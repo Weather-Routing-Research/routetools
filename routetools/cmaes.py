@@ -51,12 +51,21 @@ def control_to_curve(
     result: jnp.ndarray = batch_bezier(t=jnp.linspace(0, 1, L), control=control)
     return result
 
+@partial(jit)
+def check_land(waypoint: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
+    """
+    Check if a waypoint is on land.
+
+    :param waypoint: a 2D point
+    :return: 1 if the point is on land, 0 otherwise
+    """
+    x, y = waypoint
+    return land_matrix[jnp.round(x).astype(int), jnp.round(y).astype(int)]
 
 @partial(jit, static_argnums=(0, 3, 4))
 def cost_function(
-    vectorfield: Callable[
-        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
-    ],
+    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    land_matrix: Callable[[jnp.ndarray], jnp.ndarray],
     curve: jnp.ndarray,
     sog: jnp.ndarray | None = None,
     travel_stw: float | None = None,
@@ -137,13 +146,16 @@ def cost_function(
         total_cost = jnp.sum(cost, axis=1) * dt
     else:
         raise ValueError("travel_stw must be provided when travel_time is None")
+
+    # Check if the curve passes through land and penalize
+    land_penalty = jnp.sum(jax.vmap(check_land, in_axes=(0, None))(curve.reshape(-1, 2), land_matrix))
+    total_cost += land_penalty * 1e6  # Add a large penalty for passing through land
     return total_cost
 
 
 def optimize(
-    vectorfield: Callable[
-        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
-    ],
+    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    land_matrix: Callable[[jnp.ndarray], jnp.ndarray],
     src: jnp.ndarray,
     dst: jnp.ndarray,
     travel_stw: float | None = None,
@@ -212,7 +224,7 @@ def optimize(
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L)
         cost = cost_function(
-            vectorfield, curve, travel_stw=travel_stw, travel_time=travel_time
+            vectorfield, land_matrix, curve, travel_stw=travel_stw, travel_time=travel_time
         )
         es.tell(X, cost.tolist())  # update the optimizer
         if verbose:
