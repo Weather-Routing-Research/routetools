@@ -52,15 +52,15 @@ def control_to_curve(
     return result
 
 @partial(jit)
-def check_land(waypoint: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
+def check_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
     """
     Check if a waypoint is on land.
 
     :param waypoint: a 2D point
     :return: 1 if the point is on land, 0 otherwise
     """
-    x, y = waypoint
-    return land_matrix[jnp.round(x).astype(int), jnp.round(y).astype(int)]
+    return land_matrix[jnp.round(curve[:,:, 0]).astype(int), jnp.round(curve[:,:, 1]).astype(int)]
+
 
 @partial(jit, static_argnums=(0, 3, 4))
 def cost_function(
@@ -144,8 +144,8 @@ def cost_function(
         raise ValueError("travel_stw must be provided when travel_time is None")
 
     # Check if the curve passes through land and penalize
-    land_penalty = jnp.sum(jax.vmap(check_land, in_axes=(0, None))(curve.reshape(-1, 2), land_matrix))
-    total_cost += land_penalty * 1e6  # Add a large penalty for passing through land
+    # land_penalty = jnp.sum(jax.vmap(check_land, in_axes=(0, None))(curve.reshape(-1, 2), land_matrix))
+    # total_cost += land_penalty * 1e6  # Add a large penalty for passing through land
     return total_cost
 
 
@@ -219,6 +219,11 @@ def optimize(
     while not es.stop():
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L)
+        #print(curve.shape)
+        if check_land(curve, land_matrix).any():
+            # If the curve starts on land, we skip this solution
+            # es.tell(X, [float("inf")])
+            continue
         cost = cost_function(
             vectorfield, land_matrix, curve, travel_stw=travel_stw, travel_time=travel_time
         )
