@@ -61,6 +61,16 @@ def check_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
     """
     return land_matrix[jnp.round(curve[:,:, 0]).astype(int), jnp.round(curve[:,:, 1]).astype(int)]
 
+@partial(jit)
+def remove_curve_on_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
+    """
+    Remove the curves in a batch that pass through land.
+
+    :param curve: a batch of curves (an array of shape B x L x 2)
+    :return: a batch of curves with the points on land removed
+    """
+    return  curve[~check_land(curve, land_matrix)]
+
 
 @partial(jit, static_argnums=(0, 3, 4))
 def cost_function(
@@ -223,11 +233,12 @@ def optimize(
     while not es.stop():
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L)
-        #print(curve.shape)
-        if check_land(curve, land_matrix).any():
-            # If the curve starts on land, we skip this solution
-            # es.tell(X, [float("inf")])
-            continue
+        shape = curve.shape
+        # If the curve starts on land, we skip this solution
+        where_land = jnp.array(jnp.where(check_land(curve, land_matrix)))
+        curve = jnp.resize(jnp.delete(curve, where_land, axis=1), shape)
+        print(np.array(jnp.where(check_land(curve, land_matrix))))
+        
         cost = cost_function(
             vectorfield, land_matrix, curve, travel_stw=travel_stw, travel_time=travel_time
         )
@@ -240,6 +251,7 @@ def optimize(
 
     Xbest = es.best.x[None, :]
     curve_best: jnp.ndarray = control_to_curve(Xbest, src, dst, L=L)[0, ...]
+    print(curve_best[0], curve_best[-1], jnp.where(curve_best == src), jnp.where(curve_best == dst))
     return curve_best
 
 
