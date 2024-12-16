@@ -26,7 +26,9 @@ def generate_land(
     jnp.ndarray
         a 2D array of shape (len(x) by len(y)) representing land, where 0 is water and 1 is land
     """
-    np.random.seed(0)
+    #np.random.seed(0)
+    assert len(x) % resolution[0] == 0, "Resolution must be a divisor of the length of x"
+    assert len(y) % resolution[1] == 0, "Resolution must be a divisor of the length of y"
     land = jnp.array((pn2d((len(x), len(y)), res = resolution) > water_level).astype(int))
     return land
 
