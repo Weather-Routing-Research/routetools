@@ -296,7 +296,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     x: jnp.ndarray = jnp.arange(xmin, xmax, 0.5)
     y: jnp.ndarray = jnp.arange(ymin, ymax, 0.5)
     X, Y = jnp.meshgrid(x, y)
-    U, V = vectorfield_fourvortices(X, Y)
+    U, V = vectorfield_fourvortices(X, Y, None)
 
     plt.figure()
     plt.quiver(X, Y, U, V)
