@@ -114,9 +114,9 @@ def cost_function(
         )
 
     # Compute the time at each point
-    curvet = jnp.arange(curve.shape[1]) * dt
+    curvet = jnp.arange(curve.shape[1] - 1, dtype=float) * dt
     # Interpolate the vector field at the midpoints
-    uinterp, vinterp = vectorfield(curvex, curvey, curvet)
+    uinterp, vinterp = vectorfield(curvex, curvey, curvet[jnp.newaxis, :])
 
     if travel_stw is not None:
         # We navigate the path at fixed speed through water (STW)

@@ -19,6 +19,6 @@ def test_vectorfield_fourvortices(
     """
     x, y = jnp.array(x), jnp.array(y)
     u_expected, v_expected = jnp.array(u_expected), jnp.array(v_expected)
-    u, v = vectorfield_fourvortices(x, y)
+    u, v = vectorfield_fourvortices(x, y, None)
     assert jnp.allclose(u, u_expected, rtol=1e-3)
     assert jnp.allclose(v, v_expected, rtol=1e-3)
