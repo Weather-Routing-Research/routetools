@@ -21,7 +21,7 @@ from routetools.vectorfield import vectorfield_fourvortices, vectorfield_techy
 def test_cmaes(
     vectorfield: callable, src: jnp.array, dst: jnp.array, optimize_time: bool
 ):
-    curve = optimize(
+    optimize(
         vectorfield,
         src=src,
         dst=dst,
