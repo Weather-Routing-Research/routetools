@@ -54,7 +54,9 @@ def control_to_curve(
 
 @partial(jit, static_argnums=(0, 3, 4))
 def cost_function(
-    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    vectorfield: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
     curve: jnp.ndarray,
     sog: jnp.ndarray | None = None,
     travel_stw: float | None = None,
@@ -92,6 +94,8 @@ def cost_function(
             # time, we compute the speed over ground from the displacement
             dxdt = dx / dt
             dydt = dy / dt
+        else:
+            dt = 0  # Time between points is irrelevant
     elif (sog is not None) and (travel_time is not None):
         # If the curve is defined by a single point,
         # we will take the vector field at that point
@@ -109,8 +113,10 @@ def cost_function(
             "When curve has only one point, SOG and travel_time must be provided"
         )
 
+    # Compute the time at each point
+    curvet = jnp.arange(curve.shape[1]) * dt
     # Interpolate the vector field at the midpoints
-    uinterp, vinterp = vectorfield(curvex, curvey)
+    uinterp, vinterp = vectorfield(curvex, curvey, curvet)
 
     if travel_stw is not None:
         # We navigate the path at fixed speed through water (STW)
@@ -135,7 +141,9 @@ def cost_function(
 
 
 def optimize(
-    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    vectorfield: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
     src: jnp.ndarray,
     dst: jnp.ndarray,
     travel_stw: float | None = None,
@@ -250,7 +258,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     x: jnp.ndarray = jnp.arange(xmin, xmax, 0.5)
     y: jnp.ndarray = jnp.arange(ymin, ymax, 0.5)
     X, Y = jnp.meshgrid(x, y)
-    U, V = vectorfield_fourvortices(X, Y)
+    U, V = vectorfield_fourvortices(X, Y, None)
 
     plt.figure()
     plt.quiver(X, Y, U, V)

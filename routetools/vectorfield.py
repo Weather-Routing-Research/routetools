@@ -6,6 +6,7 @@ from jax import jit
 def vectorfield_circular(
     x: jnp.ndarray,
     y: jnp.ndarray,
+    t: jnp.ndarray,
     intensity: float = -0.9,
     centre: tuple[float, float] = (0, 0),
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
@@ -23,7 +24,9 @@ def vectorfield_circular(
 
 @jit
 def vectorfield_fourvortices(
-    x: jnp.ndarray, y: jnp.ndarray
+    x: jnp.ndarray,
+    y: jnp.ndarray,
+    t: jnp.ndarray,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     """
     Vector field with four vortices.
@@ -46,7 +49,9 @@ def vectorfield_fourvortices(
 
 @jit
 def vectorfield_swirlys(
-    x: jnp.ndarray, y: jnp.ndarray
+    x: jnp.ndarray,
+    y: jnp.ndarray,
+    t: jnp.ndarray,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     """
     Vector field with periodic behaviour.
