@@ -68,8 +68,8 @@ def check_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
     # Use bilinear interpolation to check if the points are on land
     land_values = map_coordinates(land_matrix, [x_coords, y_coords], order=1, mode='nearest')
 
-    # Return a boolean array where land_values > 0.5 indicates land
-    return land_values > 0.5
+    # Return a boolean array where land_values > 0.3 indicates land
+    return land_values > 0.1
 
 
 def remove_curve_on_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
