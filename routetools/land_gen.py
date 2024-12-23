@@ -5,7 +5,7 @@ from perlin_numpy import generate_perlin_noise_2d as pn2d
 
 
 def generate_land(
-    x: jnp.ndarray, y: jnp.ndarray, water_level: float = 0.4, resolution: jnp.ndarray = (1, 1), 
+    x: jnp.ndarray, y: jnp.ndarray, water_level: float = None, resolution: jnp.ndarray = (1, 1), 
 ) -> jnp.ndarray:
     """
     Generate a 2D array representing land using Perlin noise.
@@ -29,6 +29,10 @@ def generate_land(
     #np.random.seed(0)
     assert len(x) % resolution[0] == 0, "Resolution must be a divisor of the length of x"
     assert len(y) % resolution[1] == 0, "Resolution must be a divisor of the length of y"
-    land = jnp.array((pn2d((len(x), len(y)), res = resolution) > water_level).astype(int))
-    return land
+
+    land = pn2d((len(x), len(y)), res = resolution)
+    if water_level is None:
+        water_level = 0.75 * np.max(land.flatten(), axis = 0).astype(float)
+    print(water_level)
+    return jnp.array((land > water_level).astype(int))
 
