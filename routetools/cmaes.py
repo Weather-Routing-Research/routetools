@@ -57,9 +57,9 @@ def check_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
     """
     Check if points on a curve are on land using bilinear interpolation.
 
-    :param curve: a batch of curves (an array of shape B x L x 2)
+    :param curve: a batch of curves (an array of shape W x L x 2)
     :param land_matrix: a 2D boolean array indicating land (1) or water (0)
-    :return: a boolean array of shape (B, L) indicating if each point is on land
+    :return: a boolean array of shape (W, L) indicating if each point is on land
     """
     # Extract x and y coordinates from the curve
     x_coords = curve[..., 0]
@@ -76,7 +76,7 @@ def remove_curve_on_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.nd
     """
     Remove the curves in a batch that pass through land.
 
-    :param curve: a batch of curves (an array of shape B x L x 2)
+    :param curve: a batch of curves (an array of shape W x L x 2)
     :param land_matrix: a 2D boolean array indicating land (1) or water (0)
     :return: a batch of curves with the points on land removed
     """
@@ -246,11 +246,10 @@ def optimize(
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L)
         shape = curve.shape
-        # If the curve starts on land, we skip this solution
+        # If some curves intersect land, we remove them, and fill the guess with the left-over curves back to the original shape
+
+        # Problem: This might introduce local mins and gets trapped
         curve = jnp.resize(remove_curve_on_land(curve, land_matrix), shape)
-        # print("original curve shape ", shape)
-        # print("after filling back the curves, we have shape: ", curve.shape)
-        # print(np.array(jnp.where(check_land(curve, land_matrix))))
         
         cost = cost_function(
             vectorfield, land_matrix, curve, travel_stw=travel_stw, travel_time=travel_time
