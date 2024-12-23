@@ -284,6 +284,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
 
     curve = optimize(
         vectorfield_fourvortices,
+        land_matrix=np.zeros((10, 10)),
         src=src,
         dst=dst,
         travel_stw=None if optimize_time else 1,
