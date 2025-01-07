@@ -8,11 +8,23 @@ from routetools.vectorfield import vectorfield_fourvortices, vectorfield_techy
 @pytest.mark.parametrize(
     "vectorfield, land_matrix, src, dst, optimize_time",
     [
-        (vectorfield_fourvortices, jnp.zeros((10,10)), jnp.array([0, 0]), jnp.array([6, 2]), True),
-        (vectorfield_fourvortices, jnp.zeros((10,10)), jnp.array([0, 0]), jnp.array([6, 2]), False),
+        (
+            vectorfield_fourvortices,
+            jnp.zeros((10, 10)),
+            jnp.array([0, 0]),
+            jnp.array([6, 2]),
+            True,
+        ),
+        (
+            vectorfield_fourvortices,
+            jnp.zeros((10, 10)),
+            jnp.array([0, 0]),
+            jnp.array([6, 2]),
+            False,
+        ),
         (
             vectorfield_techy,
-            jnp.zeros((10,10)),
+            jnp.zeros((10, 10)),
             jnp.array([jnp.cos(jnp.pi / 6), jnp.sin(jnp.pi / 6)]),
             jnp.array([0, 1]),
             True,
@@ -20,7 +32,11 @@ from routetools.vectorfield import vectorfield_fourvortices, vectorfield_techy
     ],
 )
 def test_cmaes(
-    vectorfield: callable, land_matrix: jnp.array, src: jnp.array, dst: jnp.array, optimize_time: bool
+    vectorfield: callable,
+    land_matrix: jnp.array,
+    src: jnp.array,
+    dst: jnp.array,
+    optimize_time: bool,
 ):
     optimize(
         vectorfield,

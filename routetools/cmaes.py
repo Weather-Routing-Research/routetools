@@ -61,12 +61,16 @@ def check_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
     :param land_matrix: a 2D boolean array indicating land (1) or water (0)
     :return: a boolean array of shape (W, L) indicating if each point is on land
     """
+    land_values: jnp.ndarray
+
     # Extract x and y coordinates from the curve
     x_coords = curve[..., 0]
     y_coords = curve[..., 1]
 
     # Use bilinear interpolation to check if the points are on land
-    land_values = map_coordinates(land_matrix, [x_coords, y_coords], order=1, mode='nearest')
+    land_values = map_coordinates(
+        land_matrix, [x_coords, y_coords], order=1, mode="nearest"
+    )
 
     # Return a boolean array where land_values > 0.3 indicates land
     return land_values > 0.1
@@ -86,7 +90,9 @@ def remove_curve_on_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.nd
 
 @partial(jit, static_argnums=(0, 3, 4))
 def cost_function(
-    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    vectorfield: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
     land_matrix: Callable[[jnp.ndarray], jnp.ndarray],
     curve: jnp.ndarray,
     sog: jnp.ndarray | None = None,
@@ -170,7 +176,9 @@ def cost_function(
         raise ValueError("travel_stw must be provided when travel_time is None")
 
     # Check if the curve passes through land and penalize
-    # land_penalty = jnp.sum(jax.vmap(check_land, in_axes=(0, None))(curve.reshape(-1, 2), land_matrix))
+    # land_penalty = jnp.sum(
+    #    jax.vmap(check_land, in_axes=(0, None))(curve.reshape(-1, 2), land_matrix)
+    # )
     # total_cost += land_penalty * 1e6  # Add a large penalty for passing through land
     return total_cost
 
@@ -233,6 +241,8 @@ def optimize(
     jnp.ndarray
         The optimized curve (shape L x 2)
     """
+    curve: jnp.ndarray
+
     ### Minimize
     start = time.time()
 
@@ -246,13 +256,18 @@ def optimize(
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L)
         shape = curve.shape
-        # If some curves intersect land, we remove them, and fill the guess with the left-over curves back to the original shape
+        # If some curves intersect land, we remove them, and fill the guess with the
+        # left-over curves back to the original shape
 
         # Problem: This might introduce local mins and gets trapped
         curve = jnp.resize(remove_curve_on_land(curve, land_matrix), shape)
-        
+
         cost = cost_function(
-            vectorfield, land_matrix, curve, travel_stw=travel_stw, travel_time=travel_time
+            vectorfield,
+            land_matrix,
+            curve,
+            travel_stw=travel_stw,
+            travel_time=travel_time,
         )
         es.tell(X, cost.tolist())  # update the optimizer
         if verbose:
@@ -263,7 +278,12 @@ def optimize(
 
     Xbest = es.best.x[None, :]
     curve_best: jnp.ndarray = control_to_curve(Xbest, src, dst, L=L)[0, ...]
-    print(curve_best[0], curve_best[-1], jnp.where(curve_best == src), jnp.where(curve_best == dst))
+    print(
+        curve_best[0],
+        curve_best[-1],
+        jnp.where(curve_best == src),
+        jnp.where(curve_best == dst),
+    )
     return curve_best
 
 
@@ -284,7 +304,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
 
     curve = optimize(
         vectorfield_fourvortices,
-        land_matrix=np.zeros((10, 10)),
+        land_matrix=None,
         src=src,
         dst=dst,
         travel_stw=None if optimize_time else 1,
