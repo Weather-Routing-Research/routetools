@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import jax.numpy as jnp
 import numpy as np
 from perlin_numpy import generate_perlin_noise_2d as pn2d
@@ -109,7 +111,7 @@ def generate_land_function(
     water_level: float | None = None,
     resolution: tuple[int, int] | None = None,
     random_seed: int | None = None,
-) -> callable[[jnp.ndarray], jnp.ndarray]:
+) -> Callable[[jnp.ndarray], jnp.ndarray]:
     """
     Generate a function that checks if points on a curve are on land.
 
