@@ -3,11 +3,12 @@ import time
 import tomllib
 
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import pandas as pd
 import typer
 
 from routetools.cmaes import optimize
-from routetools.land import generate_land_function
+from routetools.land import generate_land_array, generate_land_function
 
 
 def main(path_config: str = "config.toml", path_results: str = "output"):
@@ -27,8 +28,8 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
 
     xlim = dict_land.pop("xlim")
     ylim = dict_land.pop("ylim")
-    x = jnp.linspace(*xlim, 100)
-    y = jnp.linspace(*ylim, 100)
+    dict_land["x"] = jnp.linspace(*xlim, 100)
+    dict_land["y"] = jnp.linspace(*ylim, 100)
 
     for _, optparams in dict_optimizer.items():
         # Some of the keys contain lists of values
@@ -60,11 +61,12 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
 
     # Initialize list of results
     results: list[dict] = []
+    fignum = 0
 
     for params in ls_params:
         # We need to pop the vectorfield name to avoid passing it to the optimizer
         vfname = params.pop("vectorfield")
-        land_function = generate_land_function(x, y, random_seed=0, **dict_land)
+        land_function = generate_land_function(**dict_land)
         vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
         start = time.time()
         try:
@@ -75,6 +77,7 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             )
         except Exception as e:
             print(e)
+            curve = None
             cost = jnp.inf
 
         comp_time = time.time() - start
@@ -88,6 +91,41 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
                 "comp_time": comp_time,
             }
         )
+
+        # Plot them
+        if curve is not None:
+            src = params["src"]
+            dst = params["dst"]
+            xmin = min([src[0], dst[0]]) - 1
+            xmax = max([src[0], dst[0]]) + 1
+            ymin = min([src[1], dst[1]]) - 1
+            ymax = max([src[1], dst[1]]) + 1
+            x = jnp.arange(xmin, xmax, 0.25)
+            y = jnp.arange(ymin, ymax, 0.25)
+            t = 0
+            X, Y = jnp.meshgrid(x, y)
+            U, V = vectorfield(X, Y, t)
+
+            plt.figure()
+            # Land is a boolean array, so we need to use contourf
+            land_array = generate_land_array(**dict_land)
+            plt.contourf(
+                dict_land["x"],
+                dict_land["y"],
+                land_array.T,
+                cmap="Greys",
+                origin="lower",
+            )
+            plt.quiver(X, Y, U, V)
+            plt.plot(curve[:, 0], curve[:, 1], color="red", marker="o")
+            plt.plot(src[0], src[1], "o", color="blue")
+            plt.plot(dst[0], dst[1], "o", color="green")
+            plt.xlim(xmin, xmax)
+            plt.ylim(ymin, ymax)
+            plt.title(f"{vfname} | Cost: {cost:.6f}")
+            plt.savefig(f"{path_results}/fig{fignum:03d}.png")
+            fignum += 1
+            plt.close()
 
     # Save the results to a csv file using pandas
     df = pd.DataFrame(results)
