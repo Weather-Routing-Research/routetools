@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import typer
 from jax import jit
-from scipy.ndimage import map_coordinates
 
 from routetools.vectorfield import vectorfield_fourvortices
 
@@ -53,48 +52,13 @@ def control_to_curve(
     return result
 
 
-def check_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
-    """
-    Check if points on a curve are on land using bilinear interpolation.
-
-    :param curve: a batch of curves (an array of shape W x L x 2)
-    :param land_matrix: a 2D boolean array indicating land (1) or water (0)
-    :return: a boolean array of shape (W, L) indicating if each point is on land
-    """
-    land_values: jnp.ndarray
-
-    # Extract x and y coordinates from the curve
-    x_coords = curve[..., 0]
-    y_coords = curve[..., 1]
-
-    # Use bilinear interpolation to check if the points are on land
-    land_values = map_coordinates(
-        land_matrix, [x_coords, y_coords], order=1, mode="nearest"
-    )
-
-    # Return a boolean array where land_values > 0.3 indicates land
-    return land_values > 0.1
-
-
-def remove_curve_on_land(curve: jnp.ndarray, land_matrix: jnp.ndarray) -> jnp.ndarray:
-    """
-    Remove the curves in a batch that pass through land.
-
-    :param curve: a batch of curves (an array of shape W x L x 2)
-    :param land_matrix: a 2D boolean array indicating land (1) or water (0)
-    :return: a batch of curves with the points on land removed
-    """
-    is_on_land = check_land(curve, land_matrix)
-    return curve[~is_on_land]
-
-
 @partial(jit, static_argnums=(0, 3, 4))
 def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
     ],
-    land_matrix: jnp.ndarray,
     curve: jnp.ndarray,
+    land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
     sog: jnp.ndarray | None = None,
     travel_stw: float | None = None,
     travel_time: float | None = None,
@@ -108,6 +72,7 @@ def cost_function(
 
     :param vectorfield: a function that returns the horizontal and vertical components
     of the vector field.
+    :param callable: a function that checks if points on a curve are on land.
     :param curve: batch of trajectories (an array of shape B x L x 2).
     :param sog: batch of speeds over ground, SOG (an array of shape B x L-1 x 2)
     :param travel_stw: the boat will have this fixed speed through water, STW.
@@ -185,9 +150,9 @@ def cost_function(
 
 def optimize(
     vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
-    land_matrix: jnp.ndarray,
     src: jnp.ndarray,
     dst: jnp.ndarray,
+    land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
     travel_stw: float | None = None,
     travel_time: float | None = None,
     K: int = 6,
@@ -216,6 +181,8 @@ def optimize(
         Source point (2D)
     dst : jnp.ndarray
         Destination point (2D)
+    land_function : callable, optional
+        A function that checks if points on a curve are on land, by default None
     travel_stw : float, optional
         The boat will have this fixed speed through water (STW).
         If set, then `travel_time` must be None. By default None
@@ -255,17 +222,11 @@ def optimize(
     while not es.stop():
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L)
-        shape = curve.shape
-        # If some curves intersect land, we remove them, and fill the guess with the
-        # left-over curves back to the original shape
-
-        # Problem: This might introduce local mins and gets trapped
-        curve = jnp.resize(remove_curve_on_land(curve, land_matrix), shape)
 
         cost = cost_function(
             vectorfield,
-            land_matrix,
             curve,
+            land_function=land_function,
             travel_stw=travel_stw,
             travel_time=travel_time,
         )
@@ -304,7 +265,6 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
 
     curve = optimize(
         vectorfield_fourvortices,
-        land_matrix=jnp.zeros((10, 10)),
         src=src,
         dst=dst,
         travel_stw=None if optimize_time else 1,
