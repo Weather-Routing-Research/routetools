@@ -101,8 +101,8 @@ def check_land_array(
         land_matrix, [x_coords, y_coords], order=1, mode="nearest"
     )
 
-    # Return a boolean array where land_values > 0.3 indicates land
-    return jnp.asarray(land_values > 0.1)
+    # Return a boolean array where land_values > 0 indicates land
+    return jnp.asarray(land_values > 0)
 
 
 def generate_land_function(
