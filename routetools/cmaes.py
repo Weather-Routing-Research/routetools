@@ -7,7 +7,6 @@ import cma
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import numpy as np
 import typer
 from jax import jit
 
@@ -52,7 +51,7 @@ def control_to_curve(
     return result
 
 
-@partial(jit, static_argnums=(0, 3, 4))
+@partial(jit, static_argnums=(0, 2, 3, 4))
 def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
@@ -140,11 +139,11 @@ def cost_function(
     else:
         raise ValueError("travel_stw must be provided when travel_time is None")
 
-    # Check if the curve passes through land and penalize
-    # land_penalty = jnp.sum(
-    #    jax.vmap(check_land, in_axes=(0, None))(curve.reshape(-1, 2), land_matrix)
-    # )
-    # total_cost += land_penalty * 1e6  # Add a large penalty for passing through land
+    if land_function is not None:
+        # Check if the curve passes through land and penalize
+        land_penalty = jax.vmap(land_function)(curve)
+        land_penalty = jnp.sum(land_penalty, axis=1)
+        total_cost += land_penalty * 1e6  # Add a large penalty for passing through land
     return total_cost
 
 
@@ -213,9 +212,9 @@ def optimize(
     ### Minimize
     start = time.time()
 
-    x0 = np.linspace(src, dst, K).flatten()  # initial solution
+    x0 = jnp.linspace(src, dst, K).flatten()  # initial solution
     # initial standard deviation to sample new solutions
-    sigma0 = float(np.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
+    sigma0 = float(jnp.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
     es = cma.CMAEvolutionStrategy(
         x0, sigma0, inopts={"popsize": popsize, "tolfun": tolfun} | kwargs
     )

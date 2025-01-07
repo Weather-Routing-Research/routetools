@@ -2,8 +2,8 @@ from collections.abc import Callable
 
 import jax.numpy as jnp
 import numpy as np
+from jax.scipy.ndimage import map_coordinates
 from perlin_numpy import generate_perlin_noise_2d as pn2d
-from scipy.ndimage import map_coordinates
 
 
 def generate_land_array(
@@ -66,10 +66,10 @@ def generate_land_array(
     # Generate land
     land = pn2d((len(x), len(y)), res=resolution)
     # Normalize land between 0 and 1
-    land = (land - np.min(land)) / (np.max(land) - np.min(land))
+    land = (land - jnp.min(land)) / (jnp.max(land) - jnp.min(land))
 
     # Return land mask
-    return jnp.array((land >= water_level).astype(int))
+    return jnp.asarray((land >= water_level).astype(int))
 
 
 def check_land_array(
@@ -102,7 +102,7 @@ def check_land_array(
     )
 
     # Return a boolean array where land_values > 0.3 indicates land
-    return land_values > 0.1
+    return jnp.asarray(land_values > 0.1)
 
 
 def generate_land_function(
