@@ -93,7 +93,7 @@ def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
     ],
-    land_matrix: Callable[[jnp.ndarray], jnp.ndarray],
+    land_matrix: jnp.ndarray,
     curve: jnp.ndarray,
     sog: jnp.ndarray | None = None,
     travel_stw: float | None = None,
@@ -185,7 +185,7 @@ def cost_function(
 
 def optimize(
     vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
-    land_matrix: Callable[[jnp.ndarray], jnp.ndarray],
+    land_matrix: jnp.ndarray,
     src: jnp.ndarray,
     dst: jnp.ndarray,
     travel_stw: float | None = None,
@@ -304,7 +304,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
 
     curve = optimize(
         vectorfield_fourvortices,
-        land_matrix=None,
+        land_matrix=jnp.zeros((10, 10)),
         src=src,
         dst=dst,
         travel_stw=None if optimize_time else 1,
