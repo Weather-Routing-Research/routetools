@@ -35,7 +35,7 @@ def test_cmaes(
     dst: jnp.array,
     optimize_time: bool,
 ):
-    optimize(
+    curve, cost = optimize(
         vectorfield,
         src=src,
         dst=dst,
@@ -45,6 +45,9 @@ def test_cmaes(
         sigma0=5,
         tolfun=1e-6,
     )
+    assert isinstance(curve, jnp.ndarray)
+    assert curve.shape[1] == 2
+    assert isinstance(cost, float)
 
 
 @pytest.mark.parametrize(
@@ -82,7 +85,7 @@ def test_cmaes_with_land(
     y = jnp.linspace(*ylim, 100)
     land_function = generate_land_function(x, y, random_seed=1)
 
-    optimize(
+    curve, cost = optimize(
         vectorfield,
         src=src,
         dst=dst,
@@ -93,3 +96,6 @@ def test_cmaes_with_land(
         sigma0=5,
         tolfun=1e-6,
     )
+    assert isinstance(curve, jnp.ndarray)
+    assert curve.shape[1] == 2
+    assert isinstance(cost, float)

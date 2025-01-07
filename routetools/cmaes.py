@@ -51,7 +51,7 @@ def control_to_curve(
     return result
 
 
-@partial(jit, static_argnums=(0, 2, 3, 4))
+@partial(jit, static_argnums=(0, 2, 3, 4, 5))
 def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
@@ -61,6 +61,7 @@ def cost_function(
     sog: jnp.ndarray | None = None,
     travel_stw: float | None = None,
     travel_time: float | None = None,
+    land_penalty: float = 10,
 ) -> jnp.ndarray:
     """
     Compute the fuel consumption of a batch of paths navigating over a vector field.
@@ -78,6 +79,7 @@ def cost_function(
     :param travel_time: When the curve is a single point, this is the time delta. Else,
     the boat can regulate its STW but must complete each path in exactly this time.
     :param L: number of points evaluated in each Bézier curve
+    :param land_penalty: penalty for passing through land
     :return: a batch of scalars (vector of shape B)
     """
     if curve.shape[1] > 1:
@@ -141,9 +143,9 @@ def cost_function(
 
     if land_function is not None:
         # Check if the curve passes through land and penalize
-        land_penalty = jax.vmap(land_function)(curve)
-        land_penalty = jnp.sum(land_penalty, axis=1)
-        total_cost += land_penalty * 1e6  # Add a large penalty for passing through land
+        is_land = jax.vmap(land_function)(curve)
+        is_land = jnp.sum(is_land, axis=1)
+        total_cost += is_land * land_penalty
     return total_cost
 
 
@@ -161,7 +163,7 @@ def optimize(
     tolfun: float = 1e-4,
     verbose: bool = True,
     **kwargs: dict[str, Any],
-) -> jnp.ndarray:
+) -> tuple[jnp.ndarray, float]:
     """
     Solve the vessel routing problem for a given vector field.
 
@@ -238,13 +240,7 @@ def optimize(
 
     Xbest = es.best.x[None, :]
     curve_best: jnp.ndarray = control_to_curve(Xbest, src, dst, L=L)[0, ...]
-    print(
-        curve_best[0],
-        curve_best[-1],
-        jnp.where(curve_best == src),
-        jnp.where(curve_best == dst),
-    )
-    return curve_best
+    return curve_best, es.best.f
 
 
 def main(gpu: bool = True, optimize_time: bool = False) -> None:
@@ -262,7 +258,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     src = jnp.array([0, 0])
     dst = jnp.array([6, 2])
 
-    curve = optimize(
+    curve, _ = optimize(
         vectorfield_fourvortices,
         src=src,
         dst=dst,
