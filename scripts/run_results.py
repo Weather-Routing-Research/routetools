@@ -9,6 +9,7 @@ import pandas as pd
 import typer
 
 from routetools.cmaes import optimize
+from routetools.fms import optimize_fms
 from routetools.land import generate_land_array, generate_land_function
 
 
@@ -91,6 +92,8 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
         )
         vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
+
+        # CMA-ES
         start = time.time()
         try:
             curve, cost = optimize(
@@ -106,19 +109,39 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
                 sigma0=params.get("sigma0", None),
                 tolfun=params["tolfun"],
             )
+
         except Exception as e:
             print(e)
             curve = None
             cost = jnp.inf
-
         comp_time = time.time() - start
+
+        # FMS
+        start = time.time()
+        try:
+            curve_fms, cost_fms = optimize_fms(
+                vectorfield,
+                curve=curve,
+                land_function=land_function,
+                travel_stw=params.get("travel_stw", None),
+                travel_time=params.get("travel_time", None),
+            )
+            # FMS returns an extra dimensions, we ignore that
+            curve_fms, cost_fms = curve_fms[0], cost_fms[0]
+        except Exception as e:
+            print(e)
+            curve_fms = None
+            cost_fms = jnp.inf
+        comp_time_fms = time.time() - start
 
         # Store the results
         results.append(
             {
                 **params,
                 "cost": cost,
+                "cost_fms": cost_fms,
                 "comp_time": comp_time,
+                "comp_time_fms": comp_time_fms,
                 "image": fignum if curve is not None else None,
             }
         )
@@ -150,12 +173,27 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             )
 
             plt.quiver(X, Y, U, V)
-            plt.plot(curve[:, 0], curve[:, 1], color="red", marker="o")
+            plt.plot(
+                curve[:, 0],
+                curve[:, 1],
+                color="red",
+                marker="o",
+                label=f"CMA-ES: {cost:.6f}",
+            )
+            if curve_fms is not None:
+                plt.plot(
+                    curve_fms[:, 0],
+                    curve_fms[:, 1],
+                    color="orange",
+                    marker="o",
+                    label=f"FMS: {cost_fms:.6f}",
+                )
             plt.plot(src[0], src[1], "o", color="blue")
             plt.plot(dst[0], dst[1], "o", color="green")
+            plt.legend()
             plt.xlim(xlim)
             plt.ylim(ylim)
-            plt.title(f"{vfname} | Cost: {cost:.6f}")
+            plt.title(f"{vfname}")
             plt.savefig(f"{path_imgs}/fig{fignum:04d}.png")
             fignum += 1
             plt.close()
