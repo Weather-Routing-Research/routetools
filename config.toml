@@ -1,29 +1,35 @@
 [vectorfield.circular]
 src = [0, 0]
 dst = [6, 2]
+xlim = [0, 6]
+ylim = [-1, 6]
 travel_stw = 10
 
 [vectorfield.fourvortices]
 src = [0, 0]
 dst = [6, 2]
+xlim = [0, 6]
+ylim = [-1, 6]
 travel_stw = 1
 
 [vectorfield.swirlys]
 src = [0, 0]
 dst = [6, 5]
+xlim = [0, 6]
+ylim = [-1, 6]
 travel_time = 30
 
 [vectorfield.techy]
 src = [0.8660254037844386, 0.5]  # [cos(pi/6), sin(pi/6)]
 dst = [0, 1]
+xlim = [-0.5, 1.5]
+ylim = [-1, 1]
 travel_stw = 1
 
 [land]
-xlim = [-5, 10]
-ylim = [-5, 10]
-water_level = 1.1
-resolution = [4, 4]
-random_seed = [0]
+water_level = [1.1, 0.8, 0.7]
+resolution = [5]
+random_seed = [2]
 
 [optimizer.cmaes]
 popsize = [200, 500, 1000]

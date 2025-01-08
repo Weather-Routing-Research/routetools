@@ -19,6 +19,8 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
     ----------
     path_config : str, optional
         Path to the configuration file, by default "config.toml"
+    path_results : str, optional
+        Path to the output folder, by default "output"
     """
     # Open the configuration file
     with open(path_config, "rb") as f:
@@ -28,17 +30,12 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
     dict_optimizer: dict = config["optimizer"]
     dict_land: dict = config["land"]
 
-    # Extract the land information
-    xlim = dict_land.pop("xlim")
-    ylim = dict_land.pop("ylim")
-    dict_land["x"] = jnp.linspace(*xlim, 100)
-    dict_land["y"] = jnp.linspace(*ylim, 100)
-
     # Ensure the output folder exists
     os.makedirs(path_results, exist_ok=True)
     path_imgs = path_results + "/img"
     os.makedirs(path_imgs, exist_ok=True)
 
+    # Extract the parameters from the optimizers
     for _, optparams in dict_optimizer.items():
         # Some of the keys contain lists of values
         # We need to create a list of dictionaries
@@ -47,8 +44,8 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             dict(zip(keys, v, strict=False)) for v in itertools.product(*values)
         ]
 
+    # Create a list of dictionaries with the vectorfield parameters
     ls_vfparams = []
-
     for vfname, vfparams in dict_vectorfield.items():
         vectorfield_module = __import__(
             "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
@@ -59,12 +56,19 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
         vfparams["dst"] = jnp.array(vfparams["dst"])
         ls_vfparams.append(vfparams)
 
+    # Finally, do the same for the land
+    keys, values = zip(*dict_land.items(), strict=False)
+    ls_lndparams = [
+        dict(zip(keys, v, strict=False)) for v in itertools.product(*values)
+    ]
+
     # Create all possible combinations of vectorfield and optimizer parameters
     # into a list of dictionaries
     ls_params = [
-        {**vfparams, **optparams}
+        {**vfparams, **optparams, **lndparams}
         for vfparams in ls_vfparams
         for optparams in ls_optparams
+        for lndparams in ls_lndparams
     ]
 
     # Initialize list of results
@@ -72,16 +76,34 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
     fignum = 0
 
     for params in ls_params:
-        # We need to pop the vectorfield name to avoid passing it to the optimizer
-        vfname = params.pop("vectorfield")
-        land_function = generate_land_function(**dict_land)
+        src = params["src"]
+        dst = params["dst"]
+        xlim = params.pop("xlim")
+        ylim = params.pop("ylim")
+        xlnd = jnp.linspace(*xlim, 100 * params["resolution"])
+        ylnd = jnp.linspace(*ylim, 100 * params["resolution"])
+        land_function = generate_land_function(
+            xlnd,
+            ylnd,
+            water_level=params["water_level"],
+            resolution=params["resolution"],
+            random_seed=params["random_seed"],
+        )
         vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
         start = time.time()
         try:
             curve, cost = optimize(
                 vectorfield,
+                src,
+                dst,
                 land_function=land_function,
-                **params,
+                travel_stw=params.get("travel_stw", None),
+                travel_time=params.get("travel_time", None),
+                K=params["K"],
+                L=params["L"],
+                popsize=params["popsize"],
+                sigma0=params.get("sigma0", None),
+                tolfun=params["tolfun"],
             )
         except Exception as e:
             print(e)
@@ -93,45 +115,47 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
         # Store the results
         results.append(
             {
-                "vectorfield": vfname,
                 **params,
                 "cost": cost,
                 "comp_time": comp_time,
+                "image": fignum if curve is not None else None,
             }
         )
 
         # Plot them
         if curve is not None:
-            src = params["src"]
-            dst = params["dst"]
-            xmin = min([src[0], dst[0]]) - 1
-            xmax = max([src[0], dst[0]]) + 1
-            ymin = min([src[1], dst[1]]) - 1
-            ymax = max([src[1], dst[1]]) + 1
-            x = jnp.arange(xmin, xmax, 0.25)
-            y = jnp.arange(ymin, ymax, 0.25)
+            xvf = jnp.arange(xlim[0] - 0.5, xlim[1] + 0.5, 0.25)
+            yvf = jnp.arange(ylim[0] - 0.5, ylim[1] + 0.5, 0.25)
             t = 0
-            X, Y = jnp.meshgrid(x, y)
+            X, Y = jnp.meshgrid(xvf, yvf)
             U, V = vectorfield(X, Y, t)
 
             plt.figure()
             # Land is a boolean array, so we need to use contourf
-            land_array = generate_land_array(**dict_land)
+            land_array = generate_land_array(
+                xlnd,
+                ylnd,
+                water_level=params["water_level"],
+                resolution=params["resolution"],
+                random_seed=params["random_seed"],
+            )
             plt.contourf(
-                dict_land["x"],
-                dict_land["y"],
+                xlnd,
+                ylnd,
                 land_array.T,
-                cmap="Greys",
+                levels=[0, 0.5, 1],
+                colors=["white", "black", "black"],
                 origin="lower",
             )
+
             plt.quiver(X, Y, U, V)
             plt.plot(curve[:, 0], curve[:, 1], color="red", marker="o")
             plt.plot(src[0], src[1], "o", color="blue")
             plt.plot(dst[0], dst[1], "o", color="green")
-            plt.xlim(xmin, xmax)
-            plt.ylim(ymin, ymax)
+            plt.xlim(xlim)
+            plt.ylim(ylim)
             plt.title(f"{vfname} | Cost: {cost:.6f}")
-            plt.savefig(f"{path_imgs}/fig{fignum:03d}.png")
+            plt.savefig(f"{path_imgs}/fig{fignum:04d}.png")
             fignum += 1
             plt.close()
 
