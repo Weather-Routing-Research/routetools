@@ -114,6 +114,7 @@ def optimize_fms(
     src: jnp.ndarray | None = None,
     dst: jnp.ndarray | None = None,
     curve: jnp.ndarray | None = None,
+    land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
     num_curves: int = 10,
     num_points: int = 200,
     travel_stw: float | None = None,
@@ -123,7 +124,7 @@ def optimize_fms(
     seed: int = 0,
     verbose: bool = True,
     **kwargs: dict[str, Any],
-) -> jnp.ndarray:
+) -> tuple[jnp.ndarray, jnp.ndarray]:
     """
     Optimize a curve using the FMS algorithm.
 
@@ -233,7 +234,9 @@ def optimize_fms(
         q = jac_vectorized(curve[:-2], curve[1:-1], curve[2:])
         return curve_new.at[1:-1].set((1 - damping) * q + curve[1:-1])
 
-    solve_vectorized = vmap(solve_equation, in_axes=(0), out_axes=(0))
+    solve_vectorized: Callable[[jnp.ndarray], jnp.ndarray] = vmap(
+        solve_equation, in_axes=(0), out_axes=(0)
+    )
 
     cost_now = cost_function(
         vectorfield,
@@ -248,6 +251,12 @@ def optimize_fms(
     while (delta >= tolfun).any():
         cost_old = cost_now
         curve = solve_vectorized(curve)
+        if land_function is not None:
+            curve_old = curve
+            is_land = jax.vmap(land_function)(curve)  # Boolean mask
+            # Any point that has been moved to land is reset to its previous position
+            if is_land.any():
+                curve = curve.at[is_land].set(curve_old[is_land])
         cost_now = cost_function(
             vectorfield,
             curve,
@@ -261,7 +270,7 @@ def optimize_fms(
         print("Optimization time:", time.time() - start)
         print("Fuel cost:", cost_now.min())
 
-    return curve  # type: ignore[return-value]
+    return curve, cost_now
 
 
 def main(gpu: bool = True, optimize_time: bool = False) -> None:
@@ -279,7 +288,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     src = jnp.array([0, 0])
     dst = jnp.array([6, 2])
 
-    curve = optimize_fms(
+    curve, cost = optimize_fms(
         vectorfield_fourvortices,
         src=src,
         dst=dst,
