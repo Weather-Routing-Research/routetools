@@ -22,8 +22,8 @@ travel_time = 30
 [vectorfield.techy]
 src = [0.8660254037844386, 0.5]  # [cos(pi/6), sin(pi/6)]
 dst = [0, 1]
-xlim = [-0.5, 1.5]
-ylim = [-1, 1]
+xlim = [-1, 1]
+ylim = [-0.5, 1.5]
 travel_stw = 1
 
 [land]
