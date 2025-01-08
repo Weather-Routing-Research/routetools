@@ -7,7 +7,6 @@ import cma
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import numpy as np
 import typer
 from jax import jit
 
@@ -52,15 +51,17 @@ def control_to_curve(
     return result
 
 
-@partial(jit, static_argnums=(0, 3, 4))
+@partial(jit, static_argnums=(0, 2, 3, 4, 5))
 def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
     ],
     curve: jnp.ndarray,
+    land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
     sog: jnp.ndarray | None = None,
     travel_stw: float | None = None,
     travel_time: float | None = None,
+    land_penalty: float = 10,
 ) -> jnp.ndarray:
     """
     Compute the fuel consumption of a batch of paths navigating over a vector field.
@@ -71,12 +72,14 @@ def cost_function(
 
     :param vectorfield: a function that returns the horizontal and vertical components
     of the vector field.
+    :param callable: a function that checks if points on a curve are on land.
     :param curve: batch of trajectories (an array of shape B x L x 2).
     :param sog: batch of speeds over ground, SOG (an array of shape B x L-1 x 2)
     :param travel_stw: the boat will have this fixed speed through water, STW.
     :param travel_time: When the curve is a single point, this is the time delta. Else,
     the boat can regulate its STW but must complete each path in exactly this time.
     :param L: number of points evaluated in each Bézier curve
+    :param land_penalty: penalty for passing through land
     :return: a batch of scalars (vector of shape B)
     """
     if curve.shape[1] > 1:
@@ -137,15 +140,20 @@ def cost_function(
         total_cost = jnp.sum(cost, axis=1) * dt
     else:
         raise ValueError("travel_stw must be provided when travel_time is None")
+
+    if land_function is not None:
+        # Check if the curve passes through land and penalize
+        is_land = jax.vmap(land_function)(curve)
+        is_land = jnp.sum(is_land, axis=1)
+        total_cost += is_land * land_penalty
     return total_cost
 
 
 def optimize(
-    vectorfield: Callable[
-        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
-    ],
+    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
     src: jnp.ndarray,
     dst: jnp.ndarray,
+    land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
     travel_stw: float | None = None,
     travel_time: float | None = None,
     K: int = 6,
@@ -155,7 +163,7 @@ def optimize(
     tolfun: float = 1e-4,
     verbose: bool = True,
     **kwargs: dict[str, Any],
-) -> jnp.ndarray:
+) -> tuple[jnp.ndarray, float]:
     """
     Solve the vessel routing problem for a given vector field.
 
@@ -174,6 +182,8 @@ def optimize(
         Source point (2D)
     dst : jnp.ndarray
         Destination point (2D)
+    land_function : callable, optional
+        A function that checks if points on a curve are on land, by default None
     travel_stw : float, optional
         The boat will have this fixed speed through water (STW).
         If set, then `travel_time` must be None. By default None
@@ -199,20 +209,27 @@ def optimize(
     jnp.ndarray
         The optimized curve (shape L x 2)
     """
+    curve: jnp.ndarray
+
     ### Minimize
     start = time.time()
 
-    x0 = np.linspace(src, dst, K).flatten()  # initial solution
+    x0 = jnp.linspace(src, dst, K).flatten()  # initial solution
     # initial standard deviation to sample new solutions
-    sigma0 = float(np.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
+    sigma0 = float(jnp.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
     es = cma.CMAEvolutionStrategy(
         x0, sigma0, inopts={"popsize": popsize, "tolfun": tolfun} | kwargs
     )
     while not es.stop():
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L)
+
         cost = cost_function(
-            vectorfield, curve, travel_stw=travel_stw, travel_time=travel_time
+            vectorfield,
+            curve,
+            land_function=land_function,
+            travel_stw=travel_stw,
+            travel_time=travel_time,
         )
         es.tell(X, cost.tolist())  # update the optimizer
         if verbose:
@@ -223,7 +240,7 @@ def optimize(
 
     Xbest = es.best.x[None, :]
     curve_best: jnp.ndarray = control_to_curve(Xbest, src, dst, L=L)[0, ...]
-    return curve_best
+    return curve_best, es.best.f
 
 
 def main(gpu: bool = True, optimize_time: bool = False) -> None:
@@ -241,7 +258,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     src = jnp.array([0, 0])
     dst = jnp.array([6, 2])
 
-    curve = optimize(
+    curve, _ = optimize(
         vectorfield_fourvortices,
         src=src,
         dst=dst,
