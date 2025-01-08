@@ -77,8 +77,8 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
         dst = params["dst"]
         xlim = params.pop("xlim")
         ylim = params.pop("ylim")
-        xlnd = jnp.linspace(*xlim, 100 * params["resolution"])
-        ylnd = jnp.linspace(*ylim, 100 * params["resolution"])
+        xlnd = jnp.arange(*xlim, 1 / params["resolution"])
+        ylnd = jnp.arange(*ylim, 1 / params["resolution"])
         land_function = generate_land_function(
             xlnd,
             ylnd,
