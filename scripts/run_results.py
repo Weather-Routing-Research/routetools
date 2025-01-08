@@ -47,9 +47,6 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
     # Create a list of dictionaries with the vectorfield parameters
     ls_vfparams = []
     for vfname, vfparams in dict_vectorfield.items():
-        vectorfield_module = __import__(
-            "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
-        )
         vfparams["vectorfield"] = vfname
         # Convert src and dst to jnp.array
         vfparams["src"] = jnp.array(vfparams["src"])
@@ -88,6 +85,10 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             water_level=params["water_level"],
             resolution=params["resolution"],
             random_seed=params["random_seed"],
+        )
+        vfname = params["vectorfield"]
+        vectorfield_module = __import__(
+            "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
         )
         vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
         start = time.time()
