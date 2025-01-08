@@ -1,4 +1,5 @@
 import itertools
+import os
 import time
 import tomllib
 
@@ -19,17 +20,24 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
     path_config : str, optional
         Path to the configuration file, by default "config.toml"
     """
+    # Open the configuration file
     with open(path_config, "rb") as f:
         config = tomllib.load(f)
-
+    # Extract the dictionaries from inside it
     dict_vectorfield: dict = config["vectorfield"]
     dict_optimizer: dict = config["optimizer"]
     dict_land: dict = config["land"]
 
+    # Extract the land information
     xlim = dict_land.pop("xlim")
     ylim = dict_land.pop("ylim")
     dict_land["x"] = jnp.linspace(*xlim, 100)
     dict_land["y"] = jnp.linspace(*ylim, 100)
+
+    # Ensure the output folder exists
+    os.makedirs(path_results, exist_ok=True)
+    path_imgs = path_results + "/img"
+    os.makedirs(path_imgs, exist_ok=True)
 
     for _, optparams in dict_optimizer.items():
         # Some of the keys contain lists of values
@@ -123,7 +131,7 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             plt.xlim(xmin, xmax)
             plt.ylim(ymin, ymax)
             plt.title(f"{vfname} | Cost: {cost:.6f}")
-            plt.savefig(f"{path_results}/fig{fignum:03d}.png")
+            plt.savefig(f"{path_imgs}/fig{fignum:03d}.png")
             fignum += 1
             plt.close()
 
