@@ -10,7 +10,7 @@ def generate_land_array(
     x: jnp.ndarray,
     y: jnp.ndarray,
     water_level: float = 0.4,
-    resolution: tuple[int, int] | None = None,
+    resolution: int | tuple[int, int] | None = None,
     random_seed: int | None = None,
 ) -> jnp.ndarray:
     """
@@ -24,7 +24,7 @@ def generate_land_array(
         array of y axis values
     water_level : float, optional
         water height that floods the noise, by default 0.4
-    resolution : tuple, optional
+    resolution : int | tuple, optional
         resolution of the noise, or density of the land. Each entry must be divisors of
         the length of x and y respectively. Higher resolution generates more detailed
         land, by default (1, 1)
@@ -38,6 +38,8 @@ def generate_land_array(
     # Ensure resolution is 2D
     if resolution is None:
         resolution = (1, 1)
+    elif isinstance(resolution, int):
+        resolution = (resolution, resolution)
     elif len(resolution) != 2:
         raise ValueError(
             f"""
@@ -109,7 +111,7 @@ def generate_land_function(
     x: jnp.ndarray,
     y: jnp.ndarray,
     water_level: float = 0.4,
-    resolution: tuple[int, int] | None = None,
+    resolution: int | tuple[int, int] | None = None,
     random_seed: int | None = None,
 ) -> Callable[[jnp.ndarray], jnp.ndarray]:
     """
@@ -123,7 +125,7 @@ def generate_land_function(
         array of y axis values
     water_level : float, optional
         water height that floods the noise, by default 0.4
-    resolution : tuple, optional
+    resolution : int | tuple, optional
         resolution of the noise, or density of the land. Each entry must be divisors of
         the length of x and y respectively. Higher resolution generates more detailed
         land, by default (1, 1)
