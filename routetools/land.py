@@ -103,17 +103,9 @@ def check_land_array(
     land_values = map_coordinates(
         land_matrix, [x_coords, y_coords], order=1, mode="nearest"
     )
-    land_values = land_values > 0
 
-    # If the distance between consecutive points is more than 1,
-    # consider land immediately between the points
-    dx = jnp.abs(jnp.diff(x_coords, axis=-1))
-    dy = jnp.abs(jnp.diff(y_coords, axis=-1))
-    land_values = land_values.at[:-1].set(
-        jnp.logical_or(land_values[:-1], jnp.logical_or(dx >= 1, dy >= 1))
-    )
-
-    return land_values
+    # Return a boolean array where land_values > 0 indicates land
+    return jnp.asarray(land_values > 0)
 
 
 def generate_land_function(
@@ -187,7 +179,7 @@ def land_penalization(
     right = curve_new[:, (repeats + 1) :, :] * right[None, :, None]
     interp = (left + right) / (repeats + 2)
     curve_new = curve_new.at[:, : -(repeats + 1)].set(interp)[:, :-repeats, :]
-    # Check if the curve passes through land and penalize
+    # Check if the curve passes through land
     is_land = jax.vmap(land_function)(curve_new)
     is_land = jnp.sum(is_land, axis=1)
     return is_land * land_penalty
