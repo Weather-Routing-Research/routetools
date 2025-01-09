@@ -108,7 +108,10 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
                 popsize=params["popsize"],
                 sigma0=params.get("sigma0", None),
                 tolfun=params["tolfun"],
+                penalty=params.get("penalty", None),
             )
+            if cost >= params.get("penalty", jnp.inf):
+                raise ValueError("The curve is on land")
 
         except Exception as e:
             print(e)

@@ -147,6 +147,7 @@ def optimize(
     src: jnp.ndarray,
     dst: jnp.ndarray,
     land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
+    penalty: float = 10,
     travel_stw: float | None = None,
     travel_time: float | None = None,
     K: int = 6,
@@ -177,6 +178,8 @@ def optimize(
         Destination point (2D)
     land_function : callable, optional
         A function that checks if points on a curve are on land, by default None
+    penalty : float, optional
+        Penalty for land points, by default 10
     travel_stw : float, optional
         The boat will have this fixed speed through water (STW).
         If set, then `travel_time` must be None. By default None
@@ -224,7 +227,7 @@ def optimize(
             travel_time=travel_time,
         )
         if land_function is not None:
-            cost += land_penalization(land_function, curve, penalty=10)
+            cost += land_penalization(land_function, curve, penalty=penalty)
 
         es.tell(X, cost.tolist())  # update the optimizer
         if verbose:

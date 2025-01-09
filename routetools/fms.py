@@ -143,6 +143,8 @@ def optimize_fms(
         Destination point, by default None
     curve : jnp.ndarray | None, optional
         Curve to optimize, shape L x 2, by default None
+    land_function : Callable[[jnp.ndarray], jnp.ndarray] | None, optional
+        Land function, by default None
     num_curves : int, optional
         Number of curves to optimize, only used when initial curves are not provided,
         by default 10
@@ -268,8 +270,6 @@ def optimize_fms(
             travel_stw=travel_stw,
             travel_time=travel_time,
         )
-        if land_function is not None:
-            cost_now += land_penalization(land_function, curve, penalty=10)
         delta = 1 - cost_now / cost_old
         idx += 1
         # Break if the maximum number of iterations is reached

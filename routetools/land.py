@@ -188,10 +188,10 @@ def land_penalization(
     is_land = jax.vmap(land_function)(curve_new)
 
     def sliding_window(arr: jnp.ndarray) -> jnp.ndarray:
-        return jnp.convolve(arr, jnp.ones(repeats + 1), mode="same")[:: repeats + 1]
+        return jnp.convolve(arr, jnp.ones(repeats + 1), mode="full")[:: repeats + 1]
 
-    is_land = jax.vmap(sliding_window)(is_land)
+    is_land = jax.vmap(sliding_window)(is_land) >= 1
     if penalty:
         return jnp.sum(is_land, axis=1) * penalty
     else:
-        return is_land >= 1
+        return is_land
