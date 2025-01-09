@@ -52,7 +52,7 @@ def control_to_curve(
     return result
 
 
-@partial(jit, static_argnums=(0, 2, 3, 4))
+@partial(jit, static_argnums=(0, 3, 4))
 def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
@@ -71,7 +71,6 @@ def cost_function(
 
     :param vectorfield: a function that returns the horizontal and vertical components
     of the vector field.
-    :param callable: a function that checks if points on a curve are on land.
     :param curve: batch of trajectories (an array of shape B x L x 2).
     :param sog: batch of speeds over ground, SOG (an array of shape B x L-1 x 2)
     :param travel_stw: the boat will have this fixed speed through water, STW.
