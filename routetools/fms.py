@@ -257,7 +257,7 @@ def optimize_fms(
         curve_old = curve.copy()
         curve = solve_vectorized(curve)
         # When land is provided, check if the points are on land
-        if isinstance(land_function, Callable):
+        if land_function is not None:
             is_land = land_penalization(land_function, curve)
             # Any point that has been moved to land is reset to its previous position
             if is_land.any():
