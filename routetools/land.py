@@ -158,7 +158,11 @@ def land_penalization(
     penalty: float | None = None,
     repeats: int = 10,
 ) -> jnp.ndarray:
-    """Return a penalization term for every curve that passes through land.
+    """
+    Return an array indicating land presence, in one of two versions.
+
+    (A) (no penalty) A boolean array indicating if the curve passes through land.
+    (B) (penalty) the sum of the number of points on land times the penalty.
 
     Parameters
     ----------
@@ -167,7 +171,8 @@ def land_penalization(
     curve : jnp.ndarray
         A batch of curves (an array of shape W x L x 2)
     penalty : float, optional
-        The penalty for passing through land, by default 10
+        The penalty for passing through land. If given, the function returns the sum of
+        the number of points on land times the penalty, by default None
     repeats : int, optional
         The number of times to interpolate the curve, by default 10
     """
