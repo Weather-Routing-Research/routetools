@@ -148,6 +148,17 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
 
         # Plot them
         if curve is not None:
+            # Update limits according to the curve
+            xlim = [
+                min(xlim[0], curve[:, 0].min()),
+                max(xlim[1], curve[:, 0].max()),
+            ]
+            ylim = [
+                min(ylim[0], curve[:, 1].min()),
+                max(ylim[1], curve[:, 1].max()),
+            ]
+
+            # Generate the vectorfield
             xvf = jnp.arange(xlim[0] - 0.5, xlim[1] + 0.5, 0.25)
             yvf = jnp.arange(ylim[0] - 0.5, ylim[1] + 0.5, 0.25)
             t = 0
@@ -191,8 +202,11 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             plt.plot(src[0], src[1], "o", color="blue")
             plt.plot(dst[0], dst[1], "o", color="green")
             plt.legend()
+
             plt.xlim(xlim)
             plt.ylim(ylim)
+            # Make sure the aspect ratio is correct
+            plt.gca().set_aspect("equal", adjustable="box")
             plt.title(f"{vfname}")
             plt.savefig(f"{path_imgs}/fig{fignum:04d}.png")
             fignum += 1
