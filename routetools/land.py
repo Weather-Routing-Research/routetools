@@ -155,7 +155,7 @@ def generate_land_function(
 def land_penalization(
     land_function: Callable[[jnp.ndarray], jnp.ndarray],
     curve: jnp.ndarray,
-    land_penalty: float = 10,
+    land_penalty: float | None = None,
     repeats: int = 10,
 ) -> jnp.ndarray:
     """Return a penalization term for every curve that passes through land.
@@ -181,5 +181,12 @@ def land_penalization(
     curve_new = curve_new.at[:, : -(repeats + 1)].set(interp)[:, :-repeats, :]
     # Check if the curve passes through land
     is_land = jax.vmap(land_function)(curve_new)
-    is_land = jnp.sum(is_land, axis=1)
-    return is_land * land_penalty
+
+    def sliding_window(arr: jnp.ndarray) -> jnp.ndarray:
+        return jnp.convolve(arr, jnp.ones(repeats + 1), mode="same")[:: repeats + 1]
+
+    is_land = jax.vmap(sliding_window)(is_land)
+    if land_penalty:
+        return jnp.sum(is_land, axis=1) * land_penalty
+    else:
+        return is_land >= 1

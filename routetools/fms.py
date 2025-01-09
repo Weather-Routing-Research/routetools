@@ -9,6 +9,7 @@ import typer
 from jax import grad, jacfwd, jacrev, jit, vmap
 
 from routetools.cmaes import cost_function
+from routetools.land import land_penalization
 from routetools.vectorfield import vectorfield_fourvortices
 
 
@@ -121,6 +122,7 @@ def optimize_fms(
     travel_time: float | None = None,
     tolfun: float = 1e-4,
     damping: float = 0.9,
+    maxiter: int = 5000,
     seed: int = 0,
     verbose: bool = True,
     **kwargs: dict[str, Any],
@@ -155,6 +157,8 @@ def optimize_fms(
         Tolerance for the cost reduction between epochs, by default 1e-4
     damping : float, optional
         Damping factor, by default 0.9
+    maxiter : int, optional
+        Maximum number of iterations, by default 5000
     verbose : bool, optional
         Print optimization progress, by default True
 
@@ -250,10 +254,11 @@ def optimize_fms(
     idx = 0
     while (delta >= tolfun).any():
         cost_old = cost_now
+        curve_old = curve.copy()
         curve = solve_vectorized(curve)
-        if land_function is not None:
-            curve_old = curve
-            is_land = jax.vmap(land_function)(curve)  # Boolean mask
+        # When land is provided, check if the points are on land
+        if isinstance(land_function, Callable):
+            is_land = land_penalization(land_function, curve)
             # Any point that has been moved to land is reset to its previous position
             if is_land.any():
                 curve = curve.at[is_land].set(curve_old[is_land])
@@ -265,6 +270,9 @@ def optimize_fms(
         )
         delta = 1 - cost_now / cost_old
         idx += 1
+        # Break if the maximum number of iterations is reached
+        if idx > maxiter:
+            break
 
     if verbose:
         print("Optimization time:", time.time() - start)

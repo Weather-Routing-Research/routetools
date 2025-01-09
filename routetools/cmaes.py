@@ -223,8 +223,8 @@ def optimize(
             travel_stw=travel_stw,
             travel_time=travel_time,
         )
-        if land_function is not None:
-            cost += land_penalization(land_function, curve)
+        if isinstance(land_function, Callable):
+            cost += land_penalization(land_function, curve, land_penalty=10)
 
         es.tell(X, cost.tolist())  # update the optimizer
         if verbose:
