@@ -202,7 +202,6 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             plt.plot(src[0], src[1], "o", color="blue")
             plt.plot(dst[0], dst[1], "o", color="green")
             plt.legend()
-
             plt.xlim(xlim)
             plt.ylim(ylim)
             # Make sure the aspect ratio is correct
