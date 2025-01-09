@@ -138,6 +138,9 @@ def cost_function(
     else:
         raise ValueError("travel_stw must be provided when travel_time is None")
 
+    # Turn any possible infinite costs into 10x the highest value
+    total_cost = jnp.where(jnp.isinf(total_cost), jnp.nan, total_cost)
+    total_cost = jnp.nan_to_num(total_cost, nan=jnp.nanmax(total_cost) * 10)
     return total_cost
 
 
