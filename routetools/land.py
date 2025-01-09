@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jax.scipy.ndimage import map_coordinates
@@ -102,9 +103,17 @@ def check_land_array(
     land_values = map_coordinates(
         land_matrix, [x_coords, y_coords], order=1, mode="nearest"
     )
+    land_values = land_values > 0
 
-    # Return a boolean array where land_values > 0 indicates land
-    return jnp.asarray(land_values > 0)
+    # If the distance between consecutive points is more than 1,
+    # consider land immediately between the points
+    dx = jnp.abs(jnp.diff(x_coords, axis=-1))
+    dy = jnp.abs(jnp.diff(y_coords, axis=-1))
+    land_values = land_values.at[:-1].set(
+        jnp.logical_or(land_values[:-1], jnp.logical_or(dx >= 1, dy >= 1))
+    )
+
+    return land_values
 
 
 def generate_land_function(
@@ -149,3 +158,36 @@ def generate_land_function(
         return check_land_array(curve, land_array, limits=limits)
 
     return check_land
+
+
+def land_penalization(
+    land_function: Callable[[jnp.ndarray], jnp.ndarray],
+    curve: jnp.ndarray,
+    land_penalty: float = 10,
+    repeats: int = 10,
+) -> jnp.ndarray:
+    """Return a penalization term for every curve that passes through land.
+
+    Parameters
+    ----------
+    land_function : Callable[[jnp.ndarray], jnp.ndarray] | None, optional
+        A function that checks if points on a curve are on land, by default None
+    curve : jnp.ndarray
+        A batch of curves (an array of shape W x L x 2)
+    land_penalty : float, optional
+        The penalty for passing through land, by default 10
+    repeats : int, optional
+        The number of times to interpolate the curve, by default 10
+    """
+    # Interpolate x times to check if the curve passes through land
+    curve_new = jnp.repeat(curve, repeats + 1, axis=1)
+    left = jnp.concatenate([jnp.arange(repeats + 2, 1, -1)] * (curve.shape[1] - 1))
+    right = jnp.concatenate([jnp.arange(0, repeats + 1, 1)] * (curve.shape[1] - 1))
+    left = curve_new[:, : -(repeats + 1), :] * left[None, :, None]
+    right = curve_new[:, (repeats + 1) :, :] * right[None, :, None]
+    interp = (left + right) / (repeats + 2)
+    curve_new = curve_new.at[:, : -(repeats + 1)].set(interp)[:, :-repeats, :]
+    # Check if the curve passes through land and penalize
+    is_land = jax.vmap(land_function)(curve_new)
+    is_land = jnp.sum(is_land, axis=1)
+    return is_land * land_penalty

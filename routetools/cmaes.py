@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import typer
 from jax import jit
 
+from routetools.land import land_penalization
 from routetools.vectorfield import vectorfield_fourvortices
 
 
@@ -51,17 +52,15 @@ def control_to_curve(
     return result
 
 
-@partial(jit, static_argnums=(0, 2, 3, 4, 5))
+@partial(jit, static_argnums=(0, 2, 3, 4))
 def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
     ],
     curve: jnp.ndarray,
-    land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
     sog: jnp.ndarray | None = None,
     travel_stw: float | None = None,
     travel_time: float | None = None,
-    land_penalty: float = 10,
 ) -> jnp.ndarray:
     """
     Compute the fuel consumption of a batch of paths navigating over a vector field.
@@ -79,7 +78,6 @@ def cost_function(
     :param travel_time: When the curve is a single point, this is the time delta. Else,
     the boat can regulate its STW but must complete each path in exactly this time.
     :param L: number of points evaluated in each Bézier curve
-    :param land_penalty: penalty for passing through land
     :return: a batch of scalars (vector of shape B)
     """
     if curve.shape[1] > 1:
@@ -141,11 +139,6 @@ def cost_function(
     else:
         raise ValueError("travel_stw must be provided when travel_time is None")
 
-    if land_function is not None:
-        # Check if the curve passes through land and penalize
-        is_land = jax.vmap(land_function)(curve)
-        is_land = jnp.sum(is_land, axis=1)
-        total_cost += is_land * land_penalty
     return total_cost
 
 
@@ -227,10 +220,12 @@ def optimize(
         cost = cost_function(
             vectorfield,
             curve,
-            land_function=land_function,
             travel_stw=travel_stw,
             travel_time=travel_time,
         )
+        if land_function is not None:
+            cost += land_penalization(land_function, curve)
+
         es.tell(X, cost.tolist())  # update the optimizer
         if verbose:
             es.disp()
