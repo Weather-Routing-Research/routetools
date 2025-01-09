@@ -268,6 +268,7 @@ def optimize_fms(
             travel_stw=travel_stw,
             travel_time=travel_time,
         )
+        cost_now += land_penalization(land_function, curve, penalty=10)
         delta = 1 - cost_now / cost_old
         idx += 1
         # Break if the maximum number of iterations is reached

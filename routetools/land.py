@@ -155,7 +155,7 @@ def generate_land_function(
 def land_penalization(
     land_function: Callable[[jnp.ndarray], jnp.ndarray],
     curve: jnp.ndarray,
-    land_penalty: float | None = None,
+    penalty: float | None = None,
     repeats: int = 10,
 ) -> jnp.ndarray:
     """Return a penalization term for every curve that passes through land.
@@ -166,7 +166,7 @@ def land_penalization(
         A function that checks if points on a curve are on land, by default None
     curve : jnp.ndarray
         A batch of curves (an array of shape W x L x 2)
-    land_penalty : float, optional
+    penalty : float, optional
         The penalty for passing through land, by default 10
     repeats : int, optional
         The number of times to interpolate the curve, by default 10
@@ -186,7 +186,7 @@ def land_penalization(
         return jnp.convolve(arr, jnp.ones(repeats + 1), mode="same")[:: repeats + 1]
 
     is_land = jax.vmap(sliding_window)(is_land)
-    if land_penalty:
-        return jnp.sum(is_land, axis=1) * land_penalty
+    if penalty:
+        return jnp.sum(is_land, axis=1) * penalty
     else:
         return is_land >= 1
