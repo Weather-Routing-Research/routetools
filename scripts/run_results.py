@@ -10,7 +10,7 @@ import typer
 
 from routetools.cmaes import optimize
 from routetools.fms import optimize_fms
-from routetools.land import generate_land_array, generate_land_function
+from routetools.land import Land
 from routetools.plot import plot_curve
 
 
@@ -94,14 +94,7 @@ def run_param_configuration(
     # Land
     xlnd = jnp.arange(*xlim, 1 / params["resolution"])
     ylnd = jnp.arange(*ylim, 1 / params["resolution"])
-    land_function = generate_land_function(
-        xlnd,
-        ylnd,
-        water_level=params.get("water_level", 0.7),
-        resolution=params.get("resolution"),
-        random_seed=params.get("random_seed"),
-    )
-    land_array = generate_land_array(
+    land = Land(
         xlnd,
         ylnd,
         water_level=params.get("water_level", 0.7),
@@ -123,7 +116,8 @@ def run_param_configuration(
             vectorfield,
             src,
             dst,
-            land_function=land_function,
+            land=land,
+            penalty=params.get("penalty", 10),
             travel_stw=params.get("travel_stw"),
             travel_time=params.get("travel_time"),
             K=params.get("K", 6),
@@ -131,7 +125,6 @@ def run_param_configuration(
             popsize=params.get("popsize", 2000),
             sigma0=params.get("sigma0"),
             tolfun=params.get("tolfun", 0.0001),
-            penalty=params.get("penalty"),
         )
         if cost >= params.get("penalty", jnp.inf):
             raise ValueError("The curve is on land")
@@ -148,7 +141,7 @@ def run_param_configuration(
         curve_fms, cost_fms = optimize_fms(
             vectorfield,
             curve=curve,
-            land_function=land_function,
+            land=land,
             travel_stw=params.get("travel_stw"),
             travel_time=params.get("travel_time"),
         )
@@ -177,9 +170,7 @@ def run_param_configuration(
             [curve, curve_fms],
             ls_name=["CMA-ES", "FMS"],
             ls_cost=[cost, cost_fms],
-            land_array=land_array,
-            xlnd=xlnd,
-            ylnd=ylnd,
+            land=land,
             xlim=xlim,
             ylim=ylim,
         )

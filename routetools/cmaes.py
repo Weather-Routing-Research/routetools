@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import typer
 from jax import jit
 
-from routetools.land import land_penalization
+from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices
 
 
@@ -148,7 +148,7 @@ def optimize(
     vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
     src: jnp.ndarray,
     dst: jnp.ndarray,
-    land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
+    land: Land | None = None,
     penalty: float = 10,
     travel_stw: float | None = None,
     travel_time: float | None = None,
@@ -222,14 +222,16 @@ def optimize(
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L)
 
-        cost = cost_function(
+        cost: jnp.ndarray = cost_function(
             vectorfield,
             curve,
             travel_stw=travel_stw,
             travel_time=travel_time,
         )
-        if land_function is not None:
-            cost += land_penalization(land_function, curve, penalty=penalty)
+
+        # Land penalization
+        if land is not None:
+            cost += land.penalization(curve, penalty=penalty)
 
         es.tell(X, cost.tolist())  # update the optimizer
         if verbose:

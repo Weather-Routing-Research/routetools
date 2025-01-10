@@ -3,6 +3,8 @@ from collections.abc import Callable
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 
+from routetools.land import Land
+
 
 def plot_curve(
     vectorfield: Callable[
@@ -11,9 +13,7 @@ def plot_curve(
     ls_curve: list[jnp.ndarray],
     ls_name: list[str] | None = None,
     ls_cost: list[float] | None = None,
-    land_array: jnp.ndarray | None = None,
-    xlnd: jnp.ndarray | None = None,
-    ylnd: jnp.ndarray | None = None,
+    land: Land | None = None,
     xlim: tuple[float, float] = (jnp.inf, -jnp.inf),
     ylim: tuple[float, float] = (jnp.inf, -jnp.inf),
 ) -> None:
@@ -55,12 +55,12 @@ def plot_curve(
 
     plt.figure()
 
-    if (land_array is not None) and (xlnd is not None) and (ylnd is not None):
+    if land is not None:
         # Land is a boolean array, so we need to use contourf
         plt.contourf(
-            xlnd,
-            ylnd,
-            land_array.T,
+            land.x,
+            land.y,
+            land.array.T,
             levels=[0, 0.5, 1],
             colors=["white", "black", "black"],
             origin="lower",

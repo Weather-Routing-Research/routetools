@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import pytest
 
 from routetools.cmaes import optimize
-from routetools.land import generate_land_function
+from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices, vectorfield_techy
 
 
@@ -83,13 +83,13 @@ def test_cmaes_with_land(
     ylim = (src[1], dst[1])
     x = jnp.linspace(*xlim, 100)
     y = jnp.linspace(*ylim, 100)
-    land_function = generate_land_function(x, y, random_seed=1)
+    land = Land(x, y, random_seed=1)
 
     curve, cost = optimize(
         vectorfield,
         src=src,
         dst=dst,
-        land_function=land_function,
+        land=land,
         travel_stw=None if optimize_time else 1,
         travel_time=10 if optimize_time else None,
         popsize=10,

@@ -9,7 +9,7 @@ import typer
 from jax import grad, jacfwd, jacrev, jit, vmap
 
 from routetools.cmaes import cost_function
-from routetools.land import land_penalization
+from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices
 
 
@@ -115,7 +115,7 @@ def optimize_fms(
     src: jnp.ndarray | None = None,
     dst: jnp.ndarray | None = None,
     curve: jnp.ndarray | None = None,
-    land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
+    land: Land | None = None,
     num_curves: int = 10,
     num_points: int = 200,
     travel_stw: float | None = None,
@@ -259,8 +259,8 @@ def optimize_fms(
         curve_old = curve.copy()
         curve = solve_vectorized(curve)
         # When land is provided, check if the points are on land
-        if land_function is not None:
-            is_land = land_penalization(land_function, curve)  # boolean mask
+        if land is not None:
+            is_land = land.penalization(curve)  # boolean mask
             # Any point that has been moved to land is reset to its previous position
             if is_land.any():
                 curve = curve.at[is_land].set(curve_old[is_land])
