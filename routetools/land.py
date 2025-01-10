@@ -91,6 +91,7 @@ class Land:
     def __call__(
         self,
         curve: jnp.ndarray,
+        interpolate: int = 0,
     ) -> jnp.ndarray:
         """
         Check if points on a curve are on land using bilinear interpolation.
@@ -98,9 +99,25 @@ class Land:
         :param curve: a batch of curves (an array of shape W x L x 2)
         :return: a boolean array of shape (W, L) indicating if each point is on land
         """
+        if interpolate > 0:
+            # Interpolate x times to check if the curve passes through land
+            curve_new = jnp.repeat(curve, interpolate + 1, axis=0)
+            left = jnp.concatenate(
+                [jnp.arange(interpolate + 2, 1, -1)] * (curve.shape[0] - 1)
+            )
+            right = jnp.concatenate(
+                [jnp.arange(0, interpolate + 1, 1)] * (curve.shape[0] - 1)
+            )
+            left = curve_new[: -(interpolate + 1), :] * left[:, None]
+            right = curve_new[(interpolate + 1) :, :] * right[:, None]
+            interp = (left + right) / (interpolate + 2)
+            curve_new = curve_new.at[: -(interpolate + 1)].set(interp)[:-interpolate, :]
+        else:
+            curve_new = curve
+
         # Extract x and y coordinates from the curve
-        x_coords = curve[..., 0]
-        y_coords = curve[..., 1]
+        x_coords = curve_new[..., 0]
+        y_coords = curve_new[..., 1]
 
         # Shift the coordinates to start at the limits
         x_coords = (x_coords - self.xmin) * self.xnorm
@@ -112,13 +129,19 @@ class Land:
         )
 
         # Return a boolean array where land_values > 0 indicates land
-        return jnp.asarray(land_values >= self.water_level)
+        is_land = jnp.asarray(land_values >= self.water_level)
+
+        if interpolate > 0:
+            is_land = jnp.convolve(is_land, jnp.ones(interpolate + 1), mode="full")[
+                :: interpolate + 1
+            ]
+        return is_land
 
     def penalization(
         self,
         curve: jnp.ndarray,
-        penalty: float | None = None,
-        repeats: int = 10,
+        penalty: float,
+        interpolate: int = 100,
     ) -> jnp.ndarray:
         """
         Return an array indicating land presence, in one of two versions.
@@ -132,29 +155,16 @@ class Land:
             A function that checks if points on a curve are on land, by default None
         curve : jnp.ndarray
             A batch of curves (an array of shape W x L x 2)
-        penalty : float, optional
-            The penalty for passing through land. If given, the function returns the sum
-            of the number of points on land times the penalty, by default None
-        repeats : int, optional
-            The number of times to interpolate the curve, by default 10
+        penalty : float
+            The penalty for passing through land.
+        interpolate : int, optional
+            The number of times to interpolate the curve, by default 100
         """
-        # Interpolate x times to check if the curve passes through land
-        curve_new = jnp.repeat(curve, repeats + 1, axis=1)
-        left = jnp.concatenate([jnp.arange(repeats + 2, 1, -1)] * (curve.shape[1] - 1))
-        right = jnp.concatenate([jnp.arange(0, repeats + 1, 1)] * (curve.shape[1] - 1))
-        left = curve_new[:, : -(repeats + 1), :] * left[None, :, None]
-        right = curve_new[:, (repeats + 1) :, :] * right[None, :, None]
-        interp = (left + right) / (repeats + 2)
-        curve_new = curve_new.at[:, : -(repeats + 1)].set(interp)[:, :-repeats, :]
 
         # Check if the curve passes through land
-        is_land = jax.vmap(self.__call__)(curve_new)
+        def func(curve):
+            return self.__call__(curve, interpolate=interpolate)
 
-        def sliding_window(arr: jnp.ndarray) -> jnp.ndarray:
-            return jnp.convolve(arr, jnp.ones(repeats + 1), mode="full")[:: repeats + 1]
+        is_land = jax.vmap(func)(curve)
 
-        is_land = jax.vmap(sliding_window)(is_land) >= 1
-        if penalty is not None:
-            return jnp.sum(is_land, axis=1) * penalty
-        else:
-            return is_land
+        return jnp.sum(is_land, axis=1) * penalty
