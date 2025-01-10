@@ -67,6 +67,129 @@ def list_config_combinations(config: dict) -> list[dict]:
     return ls_params
 
 
+def run_param_configuration(
+    params: dict, path_imgs: str = "img", fignum: int = 0
+) -> dict:
+    """Run the optimization algorithm with the given parameters.
+
+    Parameters
+    ----------
+    params : dict
+        Dictionary with the parameters
+    path_imgs : str, optional
+        Path to the folder where the images will be saved, by default "img"
+    fignum : int, optional
+        Figure number, by default 0
+
+    Returns
+    -------
+    dict
+        Dictionary with the results
+    """
+    src = params["src"]
+    dst = params["dst"]
+    xlim = params.pop("xlim")
+    ylim = params.pop("ylim")
+
+    # Land
+    xlnd = jnp.arange(*xlim, 1 / params["resolution"])
+    ylnd = jnp.arange(*ylim, 1 / params["resolution"])
+    land_function = generate_land_function(
+        xlnd,
+        ylnd,
+        water_level=params.get("water_level", 0.7),
+        resolution=params.get("resolution"),
+        random_seed=params.get("random_seed"),
+    )
+    land_array = generate_land_array(
+        xlnd,
+        ylnd,
+        water_level=params.get("water_level", 0.7),
+        resolution=params.get("resolution"),
+        random_seed=params.get("random_seed"),
+    )
+
+    # Vectorfield
+    vfname = params["vectorfield"]
+    vectorfield_module = __import__(
+        "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
+    )
+    vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
+
+    # CMA-ES optimization algorithm
+    start = time.time()
+    try:
+        curve, cost = optimize(
+            vectorfield,
+            src,
+            dst,
+            land_function=land_function,
+            travel_stw=params.get("travel_stw"),
+            travel_time=params.get("travel_time"),
+            K=params.get("K", 6),
+            L=params.get("L", 64),
+            popsize=params.get("popsize", 2000),
+            sigma0=params.get("sigma0"),
+            tolfun=params.get("tolfun", 0.0001),
+            penalty=params.get("penalty"),
+        )
+        if cost >= params.get("penalty", jnp.inf):
+            raise ValueError("The curve is on land")
+
+    except Exception as e:
+        print(e)
+        curve = None
+        cost = jnp.inf
+    comp_time = time.time() - start
+
+    # FMS variational algorithm (refinement)
+    start = time.time()
+    try:
+        curve_fms, cost_fms = optimize_fms(
+            vectorfield,
+            curve=curve,
+            land_function=land_function,
+            travel_stw=params.get("travel_stw"),
+            travel_time=params.get("travel_time"),
+        )
+        # FMS returns an extra dimensions, we ignore that
+        curve_fms, cost_fms = curve_fms[0], cost_fms[0]
+    except Exception as e:
+        print(e)
+        curve_fms = None
+        cost_fms = jnp.inf
+    comp_time_fms = time.time() - start
+
+    # Store the results
+    results = {
+        **params,
+        "cost": cost,
+        "cost_fms": cost_fms,
+        "comp_time": comp_time,
+        "comp_time_fms": comp_time_fms,
+        "image": fignum if curve is not None else None,
+    }
+
+    # Plot them
+    if curve is not None:
+        plot_curve(
+            vectorfield,
+            [curve, curve_fms],
+            ls_name=["CMA-ES", "FMS"],
+            ls_cost=[cost, cost_fms],
+            land_array=land_array,
+            xlnd=xlnd,
+            ylnd=ylnd,
+            xlim=xlim,
+            ylim=ylim,
+        )
+        plt.title(f"{vfname}")
+        plt.savefig(f"{path_imgs}/fig{fignum:04d}.png")
+        plt.close()
+
+    return results
+
+
 def main(path_config: str = "config.toml", path_results: str = "output"):
     """Run the results.
 
@@ -91,112 +214,9 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
 
     # Initialize list of results
     results: list[dict] = []
-    fignum = 0
 
-    for params in ls_params:
-        src = params["src"]
-        dst = params["dst"]
-        xlim = params.pop("xlim")
-        ylim = params.pop("ylim")
-
-        # Land
-        xlnd = jnp.arange(*xlim, 1 / params["resolution"])
-        ylnd = jnp.arange(*ylim, 1 / params["resolution"])
-        land_function = generate_land_function(
-            xlnd,
-            ylnd,
-            water_level=params.get("water_level", 0.7),
-            resolution=params.get("resolution", None),
-            random_seed=params.get("random_seed", None),
-        )
-        land_array = generate_land_array(
-            xlnd,
-            ylnd,
-            water_level=params.get("water_level", 0.7),
-            resolution=params.get("resolution", None),
-            random_seed=params.get("random_seed", None),
-        )
-
-        # Vectorfield
-        vfname = params["vectorfield"]
-        vectorfield_module = __import__(
-            "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
-        )
-        vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
-
-        # CMA-ES optimization algorithm
-        start = time.time()
-        try:
-            curve, cost = optimize(
-                vectorfield,
-                src,
-                dst,
-                land_function=land_function,
-                travel_stw=params.get("travel_stw", None),
-                travel_time=params.get("travel_time", None),
-                K=params.get("K", 6),
-                L=params.get("L", 64),
-                popsize=params.get("popsize", 2000),
-                sigma0=params.get("sigma0", None),
-                tolfun=params.get("tolfun", 0.0001),
-                penalty=params.get("penalty", None),
-            )
-            if cost >= params.get("penalty", jnp.inf):
-                raise ValueError("The curve is on land")
-
-        except Exception as e:
-            print(e)
-            curve = None
-            cost = jnp.inf
-        comp_time = time.time() - start
-
-        # FMS variational algorithm (refinement)
-        start = time.time()
-        try:
-            curve_fms, cost_fms = optimize_fms(
-                vectorfield,
-                curve=curve,
-                land_function=land_function,
-                travel_stw=params.get("travel_stw", None),
-                travel_time=params.get("travel_time", None),
-            )
-            # FMS returns an extra dimensions, we ignore that
-            curve_fms, cost_fms = curve_fms[0], cost_fms[0]
-        except Exception as e:
-            print(e)
-            curve_fms = None
-            cost_fms = jnp.inf
-        comp_time_fms = time.time() - start
-
-        # Store the results
-        results.append(
-            {
-                **params,
-                "cost": cost,
-                "cost_fms": cost_fms,
-                "comp_time": comp_time,
-                "comp_time_fms": comp_time_fms,
-                "image": fignum if curve is not None else None,
-            }
-        )
-
-        # Plot them
-        if curve is not None:
-            plot_curve(
-                vectorfield,
-                [curve, curve_fms],
-                ls_name=["CMA-ES", "FMS"],
-                ls_cost=[cost, cost_fms],
-                land_array=land_array,
-                xlnd=xlnd,
-                ylnd=ylnd,
-                xlim=xlim,
-                ylim=ylim,
-            )
-            plt.title(f"{vfname}")
-            plt.savefig(f"{path_imgs}/fig{fignum:04d}.png")
-            fignum += 1
-            plt.close()
+    for idx, params in enumerate(ls_params):
+        results.append(run_param_configuration(params, path_imgs=path_imgs, fignum=idx))
 
     # Save the results to a csv file using pandas
     df = pd.DataFrame(results)
