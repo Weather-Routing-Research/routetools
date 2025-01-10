@@ -154,7 +154,7 @@ class Land:
             return jnp.convolve(arr, jnp.ones(repeats + 1), mode="full")[:: repeats + 1]
 
         is_land = jax.vmap(sliding_window)(is_land) >= 1
-        if penalty:
+        if penalty is not None:
             return jnp.sum(is_land, axis=1) * penalty
         else:
             return is_land
