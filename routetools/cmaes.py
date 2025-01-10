@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import typer
 from jax import jit
 
+from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices
 
 
@@ -51,17 +52,15 @@ def control_to_curve(
     return result
 
 
-@partial(jit, static_argnums=(0, 2, 3, 4, 5))
+@partial(jit, static_argnums=(0, 3, 4))
 def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
     ],
     curve: jnp.ndarray,
-    land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
     sog: jnp.ndarray | None = None,
     travel_stw: float | None = None,
     travel_time: float | None = None,
-    land_penalty: float = 10,
 ) -> jnp.ndarray:
     """
     Compute the fuel consumption of a batch of paths navigating over a vector field.
@@ -72,14 +71,12 @@ def cost_function(
 
     :param vectorfield: a function that returns the horizontal and vertical components
     of the vector field.
-    :param callable: a function that checks if points on a curve are on land.
     :param curve: batch of trajectories (an array of shape B x L x 2).
     :param sog: batch of speeds over ground, SOG (an array of shape B x L-1 x 2)
     :param travel_stw: the boat will have this fixed speed through water, STW.
     :param travel_time: When the curve is a single point, this is the time delta. Else,
     the boat can regulate its STW but must complete each path in exactly this time.
     :param L: number of points evaluated in each Bézier curve
-    :param land_penalty: penalty for passing through land
     :return: a batch of scalars (vector of shape B)
     """
     if curve.shape[1] > 1:
@@ -141,11 +138,11 @@ def cost_function(
     else:
         raise ValueError("travel_stw must be provided when travel_time is None")
 
-    if land_function is not None:
-        # Check if the curve passes through land and penalize
-        is_land = jax.vmap(land_function)(curve)
-        is_land = jnp.sum(is_land, axis=1)
-        total_cost += is_land * land_penalty
+    # Turn any possible infinite costs into 10x the highest value
+    total_cost = jnp.where(jnp.isinf(total_cost), jnp.nan, total_cost)
+    total_cost = jnp.nan_to_num(
+        total_cost, nan=jnp.nanmax(total_cost, initial=1e10) * 10
+    )
     return total_cost
 
 
@@ -153,7 +150,8 @@ def optimize(
     vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
     src: jnp.ndarray,
     dst: jnp.ndarray,
-    land_function: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
+    land: Land | None = None,
+    penalty: float = 10,
     travel_stw: float | None = None,
     travel_time: float | None = None,
     K: int = 6,
@@ -184,6 +182,8 @@ def optimize(
         Destination point (2D)
     land_function : callable, optional
         A function that checks if points on a curve are on land, by default None
+    penalty : float, optional
+        Penalty for land points, by default 10
     travel_stw : float, optional
         The boat will have this fixed speed through water (STW).
         If set, then `travel_time` must be None. By default None
@@ -224,13 +224,17 @@ def optimize(
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L)
 
-        cost = cost_function(
+        cost: jnp.ndarray = cost_function(
             vectorfield,
             curve,
-            land_function=land_function,
             travel_stw=travel_stw,
             travel_time=travel_time,
         )
+
+        # Land penalization
+        if land is not None:
+            cost += land.penalization(curve, penalty=penalty)
+
         es.tell(X, cost.tolist())  # update the optimizer
         if verbose:
             es.disp()

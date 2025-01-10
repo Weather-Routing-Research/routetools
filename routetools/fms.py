@@ -9,6 +9,7 @@ import typer
 from jax import grad, jacfwd, jacrev, jit, vmap
 
 from routetools.cmaes import cost_function
+from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices
 
 
@@ -114,16 +115,18 @@ def optimize_fms(
     src: jnp.ndarray | None = None,
     dst: jnp.ndarray | None = None,
     curve: jnp.ndarray | None = None,
+    land: Land | None = None,
     num_curves: int = 10,
     num_points: int = 200,
     travel_stw: float | None = None,
     travel_time: float | None = None,
     tolfun: float = 1e-4,
     damping: float = 0.9,
+    maxiter: int = 5000,
     seed: int = 0,
     verbose: bool = True,
     **kwargs: dict[str, Any],
-) -> jnp.ndarray:
+) -> tuple[jnp.ndarray, jnp.ndarray]:
     """
     Optimize a curve using the FMS algorithm.
 
@@ -140,6 +143,8 @@ def optimize_fms(
         Destination point, by default None
     curve : jnp.ndarray | None, optional
         Curve to optimize, shape L x 2, by default None
+    land_function : Callable[[jnp.ndarray], jnp.ndarray] | None, optional
+        Land function, by default None
     num_curves : int, optional
         Number of curves to optimize, only used when initial curves are not provided,
         by default 10
@@ -154,6 +159,8 @@ def optimize_fms(
         Tolerance for the cost reduction between epochs, by default 1e-4
     damping : float, optional
         Damping factor, by default 0.9
+    maxiter : int, optional
+        Maximum number of iterations, by default 5000
     verbose : bool, optional
         Print optimization progress, by default True
 
@@ -233,7 +240,9 @@ def optimize_fms(
         q = jac_vectorized(curve[:-2], curve[1:-1], curve[2:])
         return curve_new.at[1:-1].set((1 - damping) * q + curve[1:-1])
 
-    solve_vectorized = vmap(solve_equation, in_axes=(0), out_axes=(0))
+    solve_vectorized: Callable[[jnp.ndarray], jnp.ndarray] = vmap(
+        solve_equation, in_axes=(0), out_axes=(0)
+    )
 
     cost_now = cost_function(
         vectorfield,
@@ -247,7 +256,14 @@ def optimize_fms(
     idx = 0
     while (delta >= tolfun).any():
         cost_old = cost_now
+        curve_old = curve.copy()
         curve = solve_vectorized(curve)
+        # When land is provided, check if the points are on land
+        if land is not None:
+            is_land = land.penalization(curve)  # boolean mask
+            # Any point that has been moved to land is reset to its previous position
+            if is_land.any():
+                curve = curve.at[is_land].set(curve_old[is_land])
         cost_now = cost_function(
             vectorfield,
             curve,
@@ -256,12 +272,15 @@ def optimize_fms(
         )
         delta = 1 - cost_now / cost_old
         idx += 1
+        # Break if the maximum number of iterations is reached
+        if idx > maxiter:
+            break
 
     if verbose:
         print("Optimization time:", time.time() - start)
         print("Fuel cost:", cost_now.min())
 
-    return curve  # type: ignore[return-value]
+    return curve, cost_now
 
 
 def main(gpu: bool = True, optimize_time: bool = False) -> None:
@@ -279,7 +298,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     src = jnp.array([0, 0])
     dst = jnp.array([6, 2])
 
-    curve = optimize_fms(
+    curve, cost = optimize_fms(
         vectorfield_fourvortices,
         src=src,
         dst=dst,
