@@ -14,28 +14,23 @@ from routetools.land import generate_land_array, generate_land_function
 from routetools.plot import plot_curve
 
 
-def main(path_config: str = "config.toml", path_results: str = "output"):
-    """Run the results.
+def list_config_combinations(config: dict) -> list[dict]:
+    """Generate a list of dictionaries with all possible combinations of parameters.
 
     Parameters
     ----------
-    path_config : str, optional
-        Path to the configuration file, by default "config.toml"
-    path_results : str, optional
-        Path to the output folder, by default "output"
+    config : dict
+        Configuration dictionary obtained from a TOML file
+
+    Returns
+    -------
+    list[dict]
+        List of dictionaries with all possible combinations of parameters
     """
-    # Open the configuration file
-    with open(path_config, "rb") as f:
-        config = tomllib.load(f)
     # Extract the dictionaries from inside it
     dict_vectorfield: dict = config["vectorfield"]
     dict_optimizer: dict[str, dict] = config["optimizer"]
     dict_land: dict = config["land"]
-
-    # Ensure the output folder exists
-    os.makedirs(path_results, exist_ok=True)
-    path_imgs = path_results + "/img"
-    os.makedirs(path_imgs, exist_ok=True)
 
     # Extract the parameters from the optimizers
     for _, optparams in dict_optimizer.items():
@@ -69,6 +64,30 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
         for optparams in ls_optparams
         for lndparams in ls_lndparams
     ]
+    return ls_params
+
+
+def main(path_config: str = "config.toml", path_results: str = "output"):
+    """Run the results.
+
+    Parameters
+    ----------
+    path_config : str, optional
+        Path to the configuration file, by default "config.toml"
+    path_results : str, optional
+        Path to the output folder, by default "output"
+    """
+    # Open the configuration file
+    with open(path_config, "rb") as f:
+        config = tomllib.load(f)
+
+    # Generate the list of parameters
+    ls_params = list_config_combinations(config)
+
+    # Ensure the output folder exists
+    os.makedirs(path_results, exist_ok=True)
+    path_imgs = path_results + "/img"
+    os.makedirs(path_imgs, exist_ok=True)
 
     # Initialize list of results
     results: list[dict] = []
@@ -79,6 +98,8 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
         dst = params["dst"]
         xlim = params.pop("xlim")
         ylim = params.pop("ylim")
+
+        # Land
         xlnd = jnp.arange(*xlim, 1 / params["resolution"])
         ylnd = jnp.arange(*ylim, 1 / params["resolution"])
         land_function = generate_land_function(
@@ -95,13 +116,15 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             resolution=params.get("resolution", None),
             random_seed=params.get("random_seed", None),
         )
+
+        # Vectorfield
         vfname = params["vectorfield"]
         vectorfield_module = __import__(
             "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
         )
         vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
 
-        # CMA-ES
+        # CMA-ES optimization algorithm
         start = time.time()
         try:
             curve, cost = optimize(
@@ -127,7 +150,7 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             cost = jnp.inf
         comp_time = time.time() - start
 
-        # FMS
+        # FMS variational algorithm (refinement)
         start = time.time()
         try:
             curve_fms, cost_fms = optimize_fms(
