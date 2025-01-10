@@ -46,15 +46,9 @@ def plot_curve(
     if ls_cost is None:
         ls_cost = []
 
-    # Generate the vectorfield
-    xvf = jnp.arange(xlim[0] - 0.5, xlim[1] + 0.5, 0.25)
-    yvf = jnp.arange(ylim[0] - 0.5, ylim[1] + 0.5, 0.25)
-    t = 0
-    X, Y = jnp.meshgrid(xvf, yvf)
-    U, V = vectorfield(X, Y, t)
-
     plt.figure()
 
+    # Plot the land
     if land is not None:
         # Land is a boolean array, so we need to use contourf
         plt.contourf(
@@ -64,9 +58,10 @@ def plot_curve(
             levels=[0, 0.5, 1],
             colors=["white", "black", "black"],
             origin="lower",
+            zorder=0,
         )
 
-    plt.quiver(X, Y, U, V)
+    # Plot the curves
     for idx, curve in enumerate(ls_curve):
         label = ""
         if len(ls_name) == len(ls_curve):
@@ -75,11 +70,7 @@ def plot_curve(
             cost = ls_cost[idx]
             label += f" {cost:.6f}"
         plt.plot(
-            curve[:, 0],
-            curve[:, 1],
-            marker="o",
-            markersize=2,
-            label=label,
+            curve[:, 0], curve[:, 1], marker="o", markersize=2, label=label, zorder=2
         )
         # Update limits according to the curve
         xlim = (
@@ -90,11 +81,21 @@ def plot_curve(
             min(ylim[0], min(curve[:, 1])),
             max(ylim[1], max(curve[:, 1])),
         )
+
     # Plot the start and end points
     src = curve[0]
     dst = curve[-1]
-    plt.plot(src[0], src[1], "o", color="blue")
-    plt.plot(dst[0], dst[1], "o", color="green")
+    plt.plot(src[0], src[1], "o", color="blue", zorder=3)
+    plt.plot(dst[0], dst[1], "o", color="green", zorder=3)
+
+    # Plot the vectorfield
+    xvf = jnp.arange(xlim[0] - 0.5, xlim[1] + 0.5, 0.25)
+    yvf = jnp.arange(ylim[0] - 0.5, ylim[1] + 0.5, 0.25)
+    t = 0
+    X, Y = jnp.meshgrid(xvf, yvf)
+    U, V = vectorfield(X, Y, t)
+    plt.quiver(X, Y, U, V, zorder=1)
+
     plt.legend()
     plt.xlim(xlim)
     plt.ylim(ylim)
