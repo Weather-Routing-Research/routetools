@@ -29,7 +29,7 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
         config = tomllib.load(f)
     # Extract the dictionaries from inside it
     dict_vectorfield: dict = config["vectorfield"]
-    dict_optimizer: dict = config["optimizer"]
+    dict_optimizer: dict[str, dict] = config["optimizer"]
     dict_land: dict = config["land"]
 
     # Ensure the output folder exists
@@ -84,16 +84,16 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
         land_function = generate_land_function(
             xlnd,
             ylnd,
-            water_level=params["water_level"],
-            resolution=params["resolution"],
-            random_seed=params["random_seed"],
+            water_level=params.get("water_level", 0.7),
+            resolution=params.get("resolution", None),
+            random_seed=params.get("random_seed", None),
         )
         land_array = generate_land_array(
             xlnd,
             ylnd,
-            water_level=params["water_level"],
-            resolution=params["resolution"],
-            random_seed=params["random_seed"],
+            water_level=params.get("water_level", 0.7),
+            resolution=params.get("resolution", None),
+            random_seed=params.get("random_seed", None),
         )
         vfname = params["vectorfield"]
         vectorfield_module = __import__(
@@ -111,11 +111,11 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
                 land_function=land_function,
                 travel_stw=params.get("travel_stw", None),
                 travel_time=params.get("travel_time", None),
-                K=params["K"],
-                L=params["L"],
-                popsize=params["popsize"],
+                K=params.get("K", 6),
+                L=params.get("L", 64),
+                popsize=params.get("popsize", 2000),
                 sigma0=params.get("sigma0", None),
-                tolfun=params["tolfun"],
+                tolfun=params.get("tolfun", 0.0001),
                 penalty=params.get("penalty", None),
             )
             if cost >= params.get("penalty", jnp.inf):
