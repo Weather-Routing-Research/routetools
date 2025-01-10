@@ -111,28 +111,26 @@ def run_param_configuration(
 
     # CMA-ES optimization algorithm
     start = time.time()
-    try:
-        curve, cost = optimize(
-            vectorfield,
-            src,
-            dst,
-            land=land,
-            penalty=params.get("penalty", 10),
-            travel_stw=params.get("travel_stw"),
-            travel_time=params.get("travel_time"),
-            K=params.get("K", 6),
-            L=params.get("L", 64),
-            popsize=params.get("popsize", 2000),
-            sigma0=params.get("sigma0"),
-            tolfun=params.get("tolfun", 0.0001),
-        )
-        if cost >= params.get("penalty", jnp.inf):
-            raise ValueError("The curve is on land")
 
-    except Exception as e:
-        print(e)
+    curve, cost = optimize(
+        vectorfield,
+        src,
+        dst,
+        land=land,
+        penalty=params.get("penalty", 10),
+        travel_stw=params.get("travel_stw"),
+        travel_time=params.get("travel_time"),
+        K=params.get("K", 6),
+        L=params.get("L", 64),
+        popsize=params.get("popsize", 2000),
+        sigma0=params.get("sigma0"),
+        tolfun=params.get("tolfun", 0.0001),
+    )
+    if land(curve).any():
+        print("The curve is on land")
         curve = None
         cost = jnp.inf
+
     comp_time = time.time() - start
 
     # FMS variational algorithm (refinement)
@@ -177,6 +175,8 @@ def run_param_configuration(
         plt.title(f"{vfname}")
         plt.savefig(f"{path_imgs}/fig{fignum:04d}.png")
         plt.close()
+
+    print("\n------------------------\n")
 
     return results
 
