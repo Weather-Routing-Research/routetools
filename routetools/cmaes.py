@@ -146,6 +146,50 @@ def cost_function(
     return total_cost
 
 
+def _cma_evolution_strategy(
+    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    src: jnp.ndarray,
+    dst: jnp.ndarray,
+    x0: jnp.ndarray,
+    land: Land | None = None,
+    penalty: float = 10,
+    travel_stw: float | None = None,
+    travel_time: float | None = None,
+    L: int = 64,
+    popsize: int = 200,
+    sigma0: float | None = None,
+    tolfun: float = 1e-4,
+    verbose: bool = True,
+    **kwargs: dict[str, Any],
+) -> cma.CMAEvolutionStrategy:
+    curve: jnp.ndarray
+    es = cma.CMAEvolutionStrategy(
+        x0, sigma0, inopts={"popsize": popsize, "tolfun": tolfun} | kwargs
+    )
+    if land is not None:
+        assert penalty is not None, "penalty must be a number"
+
+    while not es.stop():
+        X = es.ask()  # sample len(X) candidate solutions
+        curve = control_to_curve(jnp.array(X), src, dst, L=L)
+
+        cost: jnp.ndarray = cost_function(
+            vectorfield,
+            curve,
+            travel_stw=travel_stw,
+            travel_time=travel_time,
+        )
+
+        # Land penalization
+        if land is not None:
+            cost += land.penalization(curve, penalty=penalty)
+
+        es.tell(X, cost.tolist())  # update the optimizer
+        if verbose:
+            es.disp()
+    return es
+
+
 def optimize(
     vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
     src: jnp.ndarray,
@@ -160,7 +204,6 @@ def optimize(
     sigma0: float | None = None,
     tolfun: float = 1e-4,
     verbose: bool = True,
-    **kwargs: dict[str, Any],
 ) -> tuple[jnp.ndarray, float]:
     """
     Solve the vessel routing problem for a given vector field.
@@ -202,42 +245,32 @@ def optimize(
         Tolerance for the optimizer. By default 1e-4
     verbose : bool, optional
         By default True
-    **kwargs: optional additional parameters for CMA-ES
 
     Returns
     -------
-    jnp.ndarray
-        The optimized curve (shape L x 2)
+    tuple[jnp.ndarray, float]
+        The optimized curve (shape L x 2), and the fuel cost
     """
-    curve: jnp.ndarray
-
-    ### Minimize
-    start = time.time()
-
     x0 = jnp.linspace(src, dst, K).flatten()  # initial solution
     # initial standard deviation to sample new solutions
     sigma0 = float(jnp.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
-    es = cma.CMAEvolutionStrategy(
-        x0, sigma0, inopts={"popsize": popsize, "tolfun": tolfun} | kwargs
+
+    start = time.time()
+    es = _cma_evolution_strategy(
+        vectorfield=vectorfield,
+        src=src,
+        dst=dst,
+        x0=x0,
+        land=land,
+        penalty=penalty,
+        travel_stw=travel_stw,
+        travel_time=travel_time,
+        L=L,
+        popsize=popsize,
+        sigma0=sigma0,
+        tolfun=tolfun,
+        verbose=verbose,
     )
-    while not es.stop():
-        X = es.ask()  # sample len(X) candidate solutions
-        curve = control_to_curve(jnp.array(X), src, dst, L=L)
-
-        cost: jnp.ndarray = cost_function(
-            vectorfield,
-            curve,
-            travel_stw=travel_stw,
-            travel_time=travel_time,
-        )
-
-        # Land penalization
-        if land is not None:
-            cost += land.penalization(curve, penalty=penalty)
-
-        es.tell(X, cost.tolist())  # update the optimizer
-        if verbose:
-            es.disp()
     if verbose:
         print("Optimization time:", time.time() - start)
         print("Fuel cost:", es.best.f)
@@ -245,6 +278,121 @@ def optimize(
     Xbest = es.best.x[None, :]
     curve_best: jnp.ndarray = control_to_curve(Xbest, src, dst, L=L)[0, ...]
     return curve_best, es.best.f
+
+
+def optimize_with_increasing_penalization(
+    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    src: jnp.ndarray,
+    dst: jnp.ndarray,
+    land: Land,
+    penalty_init: float = 0,
+    penalty_increment: float = 10,
+    maxiter: int = 10,
+    travel_stw: float | None = None,
+    travel_time: float | None = None,
+    K: int = 6,
+    L: int = 64,
+    popsize: int = 200,
+    sigma0: float | None = None,
+    tolfun: float = 1e-4,
+    verbose: bool = True,
+) -> tuple[list[jnp.ndarray], list[float]]:
+    """
+    Solve the vessel routing problem for a given vector field.
+
+    Two modes are supported:
+        - Fixed speed-through-water. Optimize the vessel heading
+        - Fixed total travel time. Optimize heading and speed-through-water
+
+    Algorithm: parameterize the space of solutions with a Bézier curve,
+    and optimize the control points using the CMA-ES optimization method.
+
+    Parameters
+    ----------
+    vectorfield : callable
+        A function that returns the horizontal and vertical components of the vector
+    src : jnp.ndarray
+        Source point (2D)
+    dst : jnp.ndarray
+        Destination point (2D)
+    land_function : callable
+        A function that checks if points on a curve are on land
+    penalty_init : float, optional
+        Initial penalty for land points, by default 0
+    penalty_increment : float, optional
+        Increment in the penalty for land points. By default 10
+    maxiter : int, optional
+        Maximum number of iterations. By default 10
+    travel_stw : float, optional
+        The boat will have this fixed speed through water (STW).
+        If set, then `travel_time` must be None. By default None
+    travel_time : float, optional
+        The boat can regulate its STW but must complete the path in exactly this time.
+        If set, then `travel_stw` must be None
+    K : int, optional
+        Number of free Bézier control points. By default 6
+    L : int, optional
+        Number of points evaluated in each Bézier curve. By default 64
+    popsize : int, optional
+        Population size for the CMA-ES optimizer. By default 200
+    sigma0 : float, optional
+        Initial standard deviation to sample new solutions. By default None
+    tolfun : float, optional
+        Tolerance for the optimizer. By default 1e-4
+    verbose : bool, optional
+        By default True
+
+    Returns
+    -------
+    tuple[list[jnp.ndarray], list[float]]
+        The list of optimized curves (each with shape L x 2), and the list of fuel costs
+    """
+    x0 = jnp.linspace(src, dst, K).flatten()  # initial solution
+    # initial standard deviation to sample new solutions
+    sigma0 = float(jnp.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
+
+    # Initializations
+    penalty = penalty_init
+    is_land = True
+    niter = 1
+    ls_curve = []
+    ls_cost = []
+
+    start = time.time()
+    while is_land and (niter < maxiter):
+        es = _cma_evolution_strategy(
+            vectorfield=vectorfield,
+            src=src,
+            dst=dst,
+            x0=x0,
+            land=land,
+            penalty=penalty,
+            travel_stw=travel_stw,
+            travel_time=travel_time,
+            L=L,
+            popsize=popsize,
+            sigma0=sigma0,
+            tolfun=tolfun,
+            verbose=verbose,
+        )
+        if verbose:
+            print("Optimization time:", time.time() - start)
+            print("Fuel cost:", es.best.f)
+
+        Xbest = es.best.x[None, :]
+        curve: jnp.ndarray = control_to_curve(Xbest, src, dst, L=L)[0, ...]
+        # sigma0 = es.sigma0
+        if land(curve, interpolate=100).any():
+            penalty += penalty_increment
+            x0 = es.best.x
+        else:
+            is_land = False
+
+        niter += 1
+        ls_curve.append(curve)
+        ls_cost.append(es.best.f)
+
+    return ls_curve, ls_cost
 
 
 def main(gpu: bool = True, optimize_time: bool = False) -> None:
@@ -287,7 +435,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     plt.plot(src[0], src[1], "o", color="blue")
     plt.plot(dst[0], dst[1], "o", color="green")
     label = "time" if optimize_time else "speed"
-    plt.savefig(f"output/main_cmaes_{label}.png")
+    plt.savefig(f"output/main_cma_evolution_strategyes_{label}.png")
     plt.close()
 
 
