@@ -11,6 +11,7 @@ import typer
 from routetools.cmaes import optimize
 from routetools.fms import optimize_fms
 from routetools.land import generate_land_array, generate_land_function
+from routetools.plot import plot_curve
 
 
 def main(path_config: str = "config.toml", path_results: str = "output"):
@@ -87,6 +88,13 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             resolution=params["resolution"],
             random_seed=params["random_seed"],
         )
+        land_array = generate_land_array(
+            xlnd,
+            ylnd,
+            water_level=params["water_level"],
+            resolution=params["resolution"],
+            random_seed=params["random_seed"],
+        )
         vfname = params["vectorfield"]
         vectorfield_module = __import__(
             "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
@@ -151,64 +159,17 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
 
         # Plot them
         if curve is not None:
-            # Update limits according to the curve
-            xlim = [
-                min(xlim[0], curve[:, 0].min()),
-                max(xlim[1], curve[:, 0].max()),
-            ]
-            ylim = [
-                min(ylim[0], curve[:, 1].min()),
-                max(ylim[1], curve[:, 1].max()),
-            ]
-
-            # Generate the vectorfield
-            xvf = jnp.arange(xlim[0] - 0.5, xlim[1] + 0.5, 0.25)
-            yvf = jnp.arange(ylim[0] - 0.5, ylim[1] + 0.5, 0.25)
-            t = 0
-            X, Y = jnp.meshgrid(xvf, yvf)
-            U, V = vectorfield(X, Y, t)
-
-            plt.figure()
-            # Land is a boolean array, so we need to use contourf
-            land_array = generate_land_array(
-                xlnd,
-                ylnd,
-                water_level=params["water_level"],
-                resolution=params["resolution"],
-                random_seed=params["random_seed"],
+            plot_curve(
+                vectorfield,
+                [curve, curve_fms],
+                ls_name=["CMA-ES", "FMS"],
+                ls_cost=[cost, cost_fms],
+                land_array=land_array,
+                xlnd=xlnd,
+                ylnd=ylnd,
+                xlim=xlim,
+                ylim=ylim,
             )
-            plt.contourf(
-                xlnd,
-                ylnd,
-                land_array.T,
-                levels=[0, 0.5, 1],
-                colors=["white", "black", "black"],
-                origin="lower",
-            )
-
-            plt.quiver(X, Y, U, V)
-            plt.plot(
-                curve[:, 0],
-                curve[:, 1],
-                color="red",
-                marker="o",
-                label=f"CMA-ES: {cost:.6f}",
-            )
-            if curve_fms is not None:
-                plt.plot(
-                    curve_fms[:, 0],
-                    curve_fms[:, 1],
-                    color="orange",
-                    marker="o",
-                    label=f"FMS: {cost_fms:.6f}",
-                )
-            plt.plot(src[0], src[1], "o", color="blue")
-            plt.plot(dst[0], dst[1], "o", color="green")
-            plt.legend()
-            plt.xlim(xlim)
-            plt.ylim(ylim)
-            # Make sure the aspect ratio is correct
-            plt.gca().set_aspect("equal", adjustable="box")
             plt.title(f"{vfname}")
             plt.savefig(f"{path_imgs}/fig{fignum:04d}.png")
             fignum += 1
