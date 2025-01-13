@@ -37,12 +37,9 @@ def run_param_configuration(
     xlim = params.pop("xlim")
     ylim = params.pop("ylim")
 
-    # Land
-    xlnd = jnp.arange(*xlim, 1 / params["resolution"])
-    ylnd = jnp.arange(*ylim, 1 / params["resolution"])
     land = Land(
-        xlnd,
-        ylnd,
+        xlim,
+        ylim,
         water_level=params.get("water_level", 0.7),
         resolution=params.get("resolution"),
         random_seed=params.get("random_seed"),
