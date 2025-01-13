@@ -36,14 +36,20 @@ def run_param_configuration(
     xlim = params.pop("xlim")
     ylim = params.pop("ylim")
 
-    # Land
     land = Land(
         xlim,
         ylim,
         water_level=params.get("water_level", 0.7),
         resolution=params.get("resolution"),
         random_seed=params.get("random_seed"),
+        outbounds_is_land=params.get("outbounds_is_land", False),
     )
+
+    # Is source or destination on land?
+    if land(src) or land(dst):
+        print("Source or destination is on land. Skipping...")
+        print("\n------------------------\n")
+        return
 
     # Vectorfield
     vfname = params["vectorfield"]
