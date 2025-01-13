@@ -49,7 +49,7 @@ def run_param_configuration(
     if land(src) or land(dst):
         print("Source or destination is on land. Skipping...")
         print("\n------------------------\n")
-        return
+        return {**params}
 
     # Vectorfield
     vfname = params["vectorfield"]
