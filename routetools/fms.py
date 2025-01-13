@@ -277,8 +277,9 @@ def optimize_fms(
             break
 
     if verbose:
-        print("Optimization time:", time.time() - start)
-        print("Fuel cost:", cost_now.min())
+        print("FMS - Number of iterations:", idx)
+        print("FMS - Optimization time:", time.time() - start)
+        print("FMS - Fuel cost:", cost_now.min())
 
     return curve, cost_now
 
