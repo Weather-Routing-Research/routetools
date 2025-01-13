@@ -84,3 +84,11 @@ def vectorfield_techy(
     u = sink * x - vortex * y
     v = vortex * x + sink * y
     return u, v
+
+
+@jit
+def vectorfield_zero(
+    x: jnp.ndarray, y: jnp.ndarray, t: jnp.ndarray
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    """No currents."""
+    return jnp.zeros_like(x), jnp.zeros_like(y)
