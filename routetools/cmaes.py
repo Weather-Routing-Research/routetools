@@ -161,6 +161,7 @@ def _cma_evolution_strategy(
     popsize: int = 200,
     sigma0: float | None = None,
     tolfun: float = 1e-4,
+    seed: float = jnp.nan,
     verbose: bool = True,
     **kwargs: dict[str, Any],
 ) -> cma.CMAEvolutionStrategy:
@@ -205,7 +206,7 @@ def optimize(
     popsize: int = 200,
     sigma0: float | None = None,
     tolfun: float = 1e-4,
-    seed: int = jnp.nan,
+    seed: float = jnp.nan,
     verbose: bool = True,
 ) -> tuple[jnp.ndarray, float]:
     """
@@ -301,7 +302,7 @@ def optimize_with_increasing_penalization(
     popsize: int = 200,
     sigma0: float | None = None,
     tolfun: float = 1e-4,
-    seed: int = jnp.nan,
+    seed: float = jnp.nan,
     verbose: bool = True,
 ) -> tuple[list[jnp.ndarray], list[float]]:
     """

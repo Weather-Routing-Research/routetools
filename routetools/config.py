@@ -43,7 +43,7 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
         # We need to create a list of dictionaries
         keys, values = zip(*refparams.items(), strict=False)
         # Add "refiner" to the keys
-        keys = ["refiner_" + k for k in keys]
+        keys = tuple(["refiner_" + k for k in keys])
         ls_refparams = [
             dict(zip(keys, v, strict=False)) for v in itertools.product(*values)
         ]
