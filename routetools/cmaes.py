@@ -149,7 +149,9 @@ def cost_function(
 
 
 def _cma_evolution_strategy(
-    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    vectorfield: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
     src: jnp.ndarray,
     dst: jnp.ndarray,
     x0: jnp.ndarray,
@@ -194,7 +196,9 @@ def _cma_evolution_strategy(
 
 
 def optimize(
-    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    vectorfield: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
     src: jnp.ndarray,
     dst: jnp.ndarray,
     land: Land | None = None,
@@ -288,7 +292,9 @@ def optimize(
 
 
 def optimize_with_increasing_penalization(
-    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    vectorfield: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
     src: jnp.ndarray,
     dst: jnp.ndarray,
     land: Land,
