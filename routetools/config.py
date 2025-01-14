@@ -85,7 +85,7 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
 
             return inner
 
-        vfparams["vectorfield_fun"] = vectorfield()
+        vfparams["vectorfield_fun"] = vectorfield()  # type: ignore[no-untyped-call]
 
         ls_vfparams.append(vfparams)
 
