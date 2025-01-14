@@ -93,8 +93,8 @@ def run_param_configuration(
             land=land,
             travel_stw=params.get("travel_stw"),
             travel_time=params.get("travel_time"),
-            tolfun=params.get("tolfun", 0.0001),
-            damping=params.get("damping", 0.9),
+            tolfun=params.get("refiner_tolfun", 0.0001),
+            damping=params.get("refiner_damping", 0.9),
             verbose=True,
         )
         # FMS returns an extra dimensions, we ignore that

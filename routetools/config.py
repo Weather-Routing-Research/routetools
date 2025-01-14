@@ -24,8 +24,9 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
 
     # Extract the dictionaries from inside it
     dict_vectorfield: dict[str, Any] = config["vectorfield"]
-    dict_optimizer: dict[str, dict[str, Any]] = config["optimizer"]
     dict_land: dict[str, Any] = config["land"]
+    dict_optimizer: dict[str, dict[str, Any]] = config["optimizer"]
+    dict_refiner: dict[str, dict[str, Any]] = config["refiner"]
 
     # Extract the parameters from the optimizers
     for _, optparams in dict_optimizer.items():
@@ -33,6 +34,17 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
         # We need to create a list of dictionaries
         keys, values = zip(*optparams.items(), strict=False)
         ls_optparams = [
+            dict(zip(keys, v, strict=False)) for v in itertools.product(*values)
+        ]
+
+    # Extract the parameters from the refiners
+    for _, refparams in dict_refiner.items():
+        # Some of the keys contain lists of values
+        # We need to create a list of dictionaries
+        keys, values = zip(*refparams.items(), strict=False)
+        # Add "refiner" to the keys
+        keys = ["refiner_" + k for k in keys]
+        ls_refparams = [
             dict(zip(keys, v, strict=False)) for v in itertools.product(*values)
         ]
 
@@ -54,9 +66,10 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
     # Create all possible combinations of vectorfield and optimizer parameters
     # into a list of dictionaries
     ls_params = [
-        {**vfparams, **optparams, **lndparams}
+        {**vfparams, **lndparams, **optparams, **refparams}
         for vfparams in ls_vfparams
-        for optparams in ls_optparams
         for lndparams in ls_lndparams
+        for optparams in ls_optparams
+        for refparams in ls_refparams
     ]
     return ls_params
