@@ -203,6 +203,7 @@ def optimize(
     popsize: int = 200,
     sigma0: float | None = None,
     tolfun: float = 1e-4,
+    seed: int = jnp.nan,
     verbose: bool = True,
 ) -> tuple[jnp.ndarray, float]:
     """
@@ -243,6 +244,8 @@ def optimize(
         Initial standard deviation to sample new solutions. By default None
     tolfun : float, optional
         Tolerance for the optimizer. By default 1e-4
+    seed : int, optional
+        Random seed for reproducibility. By default jnp.nan
     verbose : bool, optional
         By default True
 
@@ -269,6 +272,7 @@ def optimize(
         popsize=popsize,
         sigma0=sigma0,
         tolfun=tolfun,
+        seed=seed,
         verbose=verbose,
     )
     if verbose:
@@ -295,6 +299,7 @@ def optimize_with_increasing_penalization(
     popsize: int = 200,
     sigma0: float | None = None,
     tolfun: float = 1e-4,
+    seed: int = jnp.nan,
     verbose: bool = True,
 ) -> tuple[list[jnp.ndarray], list[float]]:
     """
@@ -339,6 +344,8 @@ def optimize_with_increasing_penalization(
         Initial standard deviation to sample new solutions. By default None
     tolfun : float, optional
         Tolerance for the optimizer. By default 1e-4
+    seed : int, optional
+        Random seed for reproducibility. By default jnp.nan
     verbose : bool, optional
         By default True
 
@@ -373,6 +380,7 @@ def optimize_with_increasing_penalization(
             popsize=popsize,
             sigma0=sigma0,
             tolfun=tolfun,
+            seed=seed,
             verbose=verbose,
         )
         if verbose:
