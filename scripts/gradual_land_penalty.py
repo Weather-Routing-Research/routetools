@@ -53,11 +53,7 @@ def run_param_configuration(
 
     # Vectorfield
     vfname = params["vectorfield"]
-    vectorfield_module = __import__(
-        "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
-    )
-    vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
-
+    vectorfield = params["vectorfield_fun"]
     penalty_init = params.get("penalty_init", 0)
     penalty_increment = params.get("penalty_increment", 1)
 

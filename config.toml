@@ -11,6 +11,7 @@ dst = [0.5, 0.5]
 xlim = [0, 2]
 ylim = [0, 1]
 travel_stw = 1
+eps = 0
 
 [vectorfield.fourvortices]
 src = [0, 0]
