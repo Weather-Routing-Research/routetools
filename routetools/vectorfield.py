@@ -36,6 +36,8 @@ def vectorfield_doublegyre(
 
     Source: Shadden 2005
     https://doi.org/10.1016/j.physd.2005.10.007
+    Gunnarson 2021 (use case)
+    https://doi.org/10.1038/s41467-021-27015-y
 
     Parameters
     ----------
