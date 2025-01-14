@@ -135,6 +135,8 @@ def cost_function(
         # We must navigate the path in a fixed time
         cost = ((dxdt - uinterp) ** 2 + (dydt - vinterp) ** 2) / 2
         total_cost = jnp.sum(cost, axis=1) * dt
+        # TODO: JIT works for static currents. When the vectorfield changes in
+        # time, you need to approximate the cost using Newton-Raphson.
     else:
         raise ValueError("travel_stw must be provided when travel_time is None")
 
