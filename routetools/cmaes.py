@@ -452,7 +452,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     plt.plot(src[0], src[1], "o", color="blue")
     plt.plot(dst[0], dst[1], "o", color="green")
     label = "time" if optimize_time else "speed"
-    plt.savefig(f"output/main_cma_evolution_strategyes_{label}.png")
+    plt.savefig(f"output/main_cmaes_{label}.png")
     plt.close()
 
 
