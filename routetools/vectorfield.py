@@ -23,6 +23,42 @@ def vectorfield_circular(
 
 
 @jit
+def vectorfield_doublegyre(
+    x: jnp.ndarray,
+    y: jnp.ndarray,
+    t: jnp.ndarray,
+    amp: float = 0.1,
+    eps: float = 0.25,
+    w: float = 1,
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    """
+    Vector field with a double gyre pattern.
+
+    Source: Shadden 2005
+    https://doi.org/10.1016/j.physd.2005.10.007
+    Gunnarson 2021 (use case)
+    https://doi.org/10.1038/s41467-021-27015-y
+
+    Parameters
+    ----------
+    amp : float
+        Amplitude of the gyre, by default 0.1
+    eps: float
+        Eccentricity of the gyre, by default 0.25. For eps = 0 the system can be thought
+        of as a time-independent 2-D Hamiltonian system.
+    w : float
+        Frequency of the gyre, by default 1
+    """
+    a = eps * jnp.sin(w * t)
+    b = 1 - 2 * eps * jnp.sin(w * t)
+    f = a * jnp.power(x, 2) + b * x
+    dfdx = 2 * a * x + b
+    u = -jnp.pi * amp * jnp.sin(jnp.pi * f) * jnp.cos(jnp.pi * y)
+    v = jnp.pi * amp * jnp.cos(jnp.pi * f) * jnp.sin(jnp.pi * y) * dfdx
+    return u, v
+
+
+@jit
 def vectorfield_fourvortices(
     x: jnp.ndarray,
     y: jnp.ndarray,
@@ -84,3 +120,11 @@ def vectorfield_techy(
     u = sink * x - vortex * y
     v = vortex * x + sink * y
     return u, v
+
+
+@jit
+def vectorfield_zero(
+    x: jnp.ndarray, y: jnp.ndarray, t: jnp.ndarray
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    """No currents."""
+    return jnp.zeros_like(x), jnp.zeros_like(y)

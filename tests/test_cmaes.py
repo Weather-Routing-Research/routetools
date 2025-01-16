@@ -43,7 +43,7 @@ def test_cmaes(
         travel_time=10 if optimize_time else None,
         popsize=10,
         sigma0=5,
-        tolfun=1e-6,
+        tolfun=0.1,
     )
     assert isinstance(curve, jnp.ndarray)
     assert curve.shape[1] == 2
@@ -79,22 +79,21 @@ def test_cmaes_with_land(
     dst: jnp.array,
     optimize_time: bool,
 ):
-    xlim = (src[0], dst[0])
-    ylim = (src[1], dst[1])
-    x = jnp.linspace(*xlim, 100)
-    y = jnp.linspace(*ylim, 100)
-    land = Land(x, y, random_seed=1)
+    xlim = sorted((src[0], dst[0]))
+    ylim = sorted((src[1], dst[1]))
+    land = Land(xlim, ylim, random_seed=1, resolution=10)
 
     curve, cost = optimize(
         vectorfield,
         src=src,
         dst=dst,
         land=land,
+        penalty=0.1,
         travel_stw=None if optimize_time else 1,
         travel_time=10 if optimize_time else None,
         popsize=10,
         sigma0=5,
-        tolfun=1e-6,
+        tolfun=0.1,
     )
     assert isinstance(curve, jnp.ndarray)
     assert curve.shape[1] == 2

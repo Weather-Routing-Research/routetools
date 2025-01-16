@@ -68,7 +68,7 @@ def plot_curve(
             label = ls_name[idx]
         if len(ls_cost) == len(ls_curve):
             cost = ls_cost[idx]
-            label += f" {cost:.6f}"
+            label += f" {cost:.3f}"
         plt.plot(
             curve[:, 0], curve[:, 1], marker="o", markersize=2, label=label, zorder=2
         )
@@ -96,8 +96,11 @@ def plot_curve(
     U, V = vectorfield(X, Y, t)
     plt.quiver(X, Y, U, V, zorder=1)
 
-    plt.legend()
+    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
     plt.xlim(xlim)
     plt.ylim(ylim)
     # Make sure the aspect ratio is correct
     plt.gca().set_aspect("equal", adjustable="box")
+
+    # Adjust the layout
+    plt.tight_layout(pad=2.5)

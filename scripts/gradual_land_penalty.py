@@ -1,12 +1,11 @@
 import os
 import time
 
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import pandas as pd
 import typer
 
-from routetools.cmaes import optimize
+from routetools.cmaes import optimize_with_increasing_penalization
 from routetools.config import list_config_combinations
 from routetools.fms import optimize_fms
 from routetools.land import Land
@@ -50,21 +49,24 @@ def run_param_configuration(
     if land(src) or land(dst):
         print("Source or destination is on land. Skipping...")
         print("\n------------------------\n")
-        return
+        return {**params}
 
     # Vectorfield
     vfname = params["vectorfield"]
     vectorfield = params["vectorfield_fun"]
+    penalty_init = params.get("penalty_init", 0)
+    penalty_increment = params.get("penalty_increment", 1)
 
     # CMA-ES optimization algorithm
     start = time.time()
-
-    curve, cost = optimize(
+    ls_curve, ls_cost = optimize_with_increasing_penalization(
         vectorfield,
         src,
         dst,
         land=land,
-        penalty=params.get("penalty", 10),
+        penalty_init=penalty_init,
+        penalty_increment=penalty_increment,
+        maxiter=params.get("maxiter", 10),
         travel_stw=params.get("travel_stw"),
         travel_time=params.get("travel_time"),
         K=params.get("K", 6),
@@ -73,19 +75,17 @@ def run_param_configuration(
         sigma0=params.get("sigma0"),
         tolfun=params.get("tolfun", 0.0001),
     )
-    if land(curve).any():
-        print("The curve is on land")
-        curve = None
-        cost = jnp.inf
-
     comp_time = time.time() - start
+
+    ls_penalty = [penalty_init + i * penalty_increment for i in range(len(ls_curve))]
+    ls_name = [f"CMA-ES (p={penalty})" for penalty in ls_penalty]
 
     # FMS variational algorithm (refinement)
     start = time.time()
-    try:
+    if not land(ls_curve[-1], interpolate=100).any():
         curve_fms, cost_fms = optimize_fms(
             vectorfield,
-            curve=curve,
+            curve=ls_curve[-1],
             land=land,
             travel_stw=params.get("travel_stw"),
             travel_time=params.get("travel_time"),
@@ -95,36 +95,37 @@ def run_param_configuration(
         )
         # FMS returns an extra dimensions, we ignore that
         curve_fms, cost_fms = curve_fms[0], cost_fms[0]
-    except Exception as e:
-        print(e)
-        curve_fms = None
-        cost_fms = jnp.inf
+        ls_curve.append(curve_fms)
+        ls_cost.append(cost_fms)
+        ls_name.append("FMS")
+    else:
+        cost_fms = None
+
     comp_time_fms = time.time() - start
 
     # Store the results
     results = {
         **params,
-        "cost": cost,
+        # "cost": cost,
         "cost_fms": cost_fms,
         "comp_time": comp_time,
         "comp_time_fms": comp_time_fms,
-        "image": fignum if curve is not None else None,
+        "image": fignum,
     }
 
     # Plot them
-    if curve is not None:
-        plot_curve(
-            vectorfield,
-            [curve, curve_fms],
-            ls_name=["CMA-ES", "FMS"],
-            ls_cost=[cost, cost_fms],
-            land=land,
-            xlim=xlim,
-            ylim=ylim,
-        )
-        plt.title(f"{vfname}")
-        plt.savefig(f"{path_imgs}/fig{fignum:04d}.png")
-        plt.close()
+    plot_curve(
+        vectorfield,
+        ls_curve,
+        ls_name=ls_name,
+        ls_cost=ls_cost,
+        land=land,
+        xlim=xlim,
+        ylim=ylim,
+    )
+    plt.title(f"{vfname}")
+    plt.savefig(f"{path_imgs}/fig{fignum:04d}.png")
+    plt.close()
 
     print("\n------------------------\n")
 
@@ -157,7 +158,7 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
 
     # Save the results to a csv file using pandas
     df = pd.DataFrame(results)
-    df.to_csv(path_results + "/results.csv", index=False, float_format="%.6f")
+    df.to_csv(path_results + "/results_penalty.csv", index=False, float_format="%.6f")
 
 
 if __name__ == "__main__":

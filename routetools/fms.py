@@ -260,7 +260,7 @@ def optimize_fms(
         curve = solve_vectorized(curve)
         # When land is provided, check if the points are on land
         if land is not None:
-            is_land = land.penalization(curve)  # boolean mask
+            is_land = land.penalization(curve, 1, interpolate=100) > 0  # boolean mask
             # Any point that has been moved to land is reset to its previous position
             if is_land.any():
                 curve = curve.at[is_land].set(curve_old[is_land])
@@ -277,8 +277,9 @@ def optimize_fms(
             break
 
     if verbose:
-        print("Optimization time:", time.time() - start)
-        print("Fuel cost:", cost_now.min())
+        print("FMS - Number of iterations:", idx)
+        print("FMS - Optimization time:", time.time() - start)
+        print("FMS - Fuel cost:", cost_now.min())
 
     return curve, cost_now
 
