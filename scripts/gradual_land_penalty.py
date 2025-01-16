@@ -103,6 +103,9 @@ def run_param_configuration(
 
     comp_time_fms = time.time() - start
 
+    # Remove some parameters
+    params.pop("vectorfield_fun")
+
     # Store the results
     results = {
         **params,

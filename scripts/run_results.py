@@ -101,6 +101,9 @@ def run_param_configuration(
         cost_fms = jnp.inf
     comp_time_fms = time.time() - start
 
+    # Remove some parameters
+    params.pop("vectorfield_fun")
+
     # Store the results
     results = {
         **params,
