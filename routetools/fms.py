@@ -1,6 +1,5 @@
 import time
 from collections.abc import Callable
-from typing import Any
 
 import jax
 import jax.numpy as jnp
@@ -125,7 +124,6 @@ def optimize_fms(
     maxiter: int = 5000,
     seed: int = 0,
     verbose: bool = True,
-    **kwargs: dict[str, Any],
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     """
     Optimize a curve using the FMS algorithm.
