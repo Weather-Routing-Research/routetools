@@ -169,7 +169,7 @@ def _cma_evolution_strategy(
 ) -> cma.CMAEvolutionStrategy:
     curve: jnp.ndarray
     es = cma.CMAEvolutionStrategy(
-        x0, sigma0, inopts={"popsize": popsize, "tolfun": tolfun} | kwargs
+        x0, sigma0, inopts={"popsize": popsize, "tolfun": tolfun, "seed": seed} | kwargs
     )
     if land is not None:
         assert penalty is not None, "penalty must be a number"
