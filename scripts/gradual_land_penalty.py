@@ -103,9 +103,6 @@ def run_param_configuration(
 
     comp_time_fms = time.time() - start
 
-    # Remove some parameters
-    params.pop("vectorfield_fun")
-
     # Store the results
     results = {
         **params,
@@ -161,6 +158,8 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
 
     # Save the results to a csv file using pandas
     df = pd.DataFrame(results)
+    # Remove some columns
+    df = df.drop(columns=["vectorfield_fun"])
     df.to_csv(path_results + "/results_penalty.csv", index=False, float_format="%.6f")
 
 
