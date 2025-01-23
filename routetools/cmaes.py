@@ -1,6 +1,7 @@
 import time
 from collections.abc import Callable
 from functools import partial
+from pathlib import Path
 from typing import Any
 
 import cma
@@ -424,6 +425,10 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     # Check if JAX is using the GPU
     print("JAX devices:", jax.devices())
 
+    # Create the output folder if needed
+    output_folder = Path("output")
+    output_folder.mkdir(exist_ok=True)
+
     src = jnp.array([0, 0])
     dst = jnp.array([6, 2])
 
@@ -452,7 +457,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     plt.plot(src[0], src[1], "o", color="blue")
     plt.plot(dst[0], dst[1], "o", color="green")
     label = "time" if optimize_time else "speed"
-    plt.savefig(f"output/main_cmaes_{label}.png")
+    plt.savefig(output_folder / f"main_cmaes_{label}.png")
     plt.close()
 
 
