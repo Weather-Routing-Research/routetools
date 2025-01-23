@@ -63,41 +63,50 @@ def control_to_curve(
     first_point = jnp.broadcast_to(src, (control.shape[0], 1, 2))
     last_point = jnp.broadcast_to(dst, (control.shape[0], 1, 2))
     control = jnp.hstack([first_point, control, last_point])
+
     result: jnp.ndarray
     if num_pieces > 1:
         # Ensure that the number of control points is divisible by the number of pieces
-        control_per_piece = control.shape[1] / num_pieces
-        if int(control_per_piece) != control_per_piece:
+        control_per_piece = (control.shape[1] - 1) / num_pieces
+        if control_per_piece < 3:
             raise ValueError(
-                "The number of control points must be divisible by num_pieces."
+                "The number of control points - 1 must be at least 3 per piece. "
                 f"Got {control.shape[1]} control points and {num_pieces} pieces."
+            )
+        elif int(control_per_piece) != control_per_piece:
+            control_rec = int(control_per_piece) * num_pieces + 1
+            raise ValueError(
+                "The number of control points must be divisible by num_pieces. "
+                f"Got {control.shape[1]} control points and {num_pieces} pieces."
+                f"Consider using {control_rec} control points."
             )
         else:
             control_per_piece = int(control_per_piece)
         # Ensure the number of waypoints is divisible by the number of pieces
-        waypoints_per_piece = (L - 1) / num_pieces + 1
+        waypoints_per_piece = (L - 1) / num_pieces
         if int(waypoints_per_piece) != waypoints_per_piece:
-            L_rec = (int(waypoints_per_piece) - 1) * num_pieces + 1
+            L_rec = int(waypoints_per_piece) * num_pieces + 1
             raise ValueError(
                 "The number of waypoints - 1 must be divisible by num_pieces. "
                 f"Got {L} waypoints and {num_pieces} pieces. "
                 f"Consider using {L_rec} waypoints."
             )
         else:
-            waypoints_per_piece = int(waypoints_per_piece)
+            waypoints_per_piece = int(waypoints_per_piece) + 1
+
         # Split the control points into pieces
-        ls_result: list[jnp.ndarray] = []
+        ls_pieces: list[jnp.ndarray] = []
         for i in range(num_pieces):
             start = i * control_per_piece
             end = (i + 1) * control_per_piece + 1
-            piece = batch_bezier(
+            piece: jnp.ndarray = batch_bezier(
                 t=jnp.linspace(0, 1, waypoints_per_piece),
-                control=control[:, start:end],
+                control=control[:, start:end, :],
             )[:, :-1]
             # The last point of each piece is omitted to avoid duplicates
-            ls_result.append(piece)
-        # Concatenate the pieces together
-        result = jnp.concatenate(ls_result, axis=1)
+            ls_pieces.append(piece)
+        # Concatenate the pieces into a single curve
+        result = jnp.hstack(ls_pieces)
         # Add the destination (last) point (was omitted in the loop)
         result = jnp.hstack([result, last_point])
     else:
@@ -333,6 +342,7 @@ def optimize(
         travel_stw=travel_stw,
         travel_time=travel_time,
         L=L,
+        num_pieces=num_pieces,
         popsize=popsize,
         sigma0=sigma0,
         tolfun=tolfun,
@@ -448,6 +458,7 @@ def optimize_with_increasing_penalization(
             travel_stw=travel_stw,
             travel_time=travel_time,
             L=L,
+            num_pieces=num_pieces,
             popsize=popsize,
             sigma0=sigma0,
             tolfun=tolfun,
@@ -501,6 +512,9 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
         dst=dst,
         travel_stw=None if optimize_time else 1,
         travel_time=10 if optimize_time else None,
+        K=13,
+        L=64,
+        num_pieces=3,
         popsize=1000,
         sigma0=5,
         tolfun=1e-6,
