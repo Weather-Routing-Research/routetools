@@ -32,16 +32,30 @@ def batch_bezier(t: jnp.ndarray, control: jnp.ndarray) -> jnp.ndarray:
     return control[:, 0, ...]
 
 
-@partial(jit, static_argnums=(3,))
+@partial(jit, static_argnums=(3, 4))
 def control_to_curve(
-    control: jnp.ndarray, src: jnp.ndarray, dst: jnp.ndarray, L: int = 64
+    control: jnp.ndarray,
+    src: jnp.ndarray,
+    dst: jnp.ndarray,
+    L: int = 64,
+    num_pieces: int = 1,
 ) -> jnp.ndarray:
     """
     Convert a batch of free parameters into a batch of Bézier curves.
 
-    :param x: a B x 2K matrix. The first K columns are the x positions of the Bézier
-    control points, and the last K are the y positions
-    :return: curves, control points (both batched)..
+    Parameters
+    ----------
+    control : jnp.ndarray
+        A B x 2K matrix. The first K columns are the x positions of the Bézier
+        control points, and the last K are the y positions
+    src : jnp.ndarray
+        Source point (2D)
+    dst : jnp.ndarray
+        Destination point (2D)
+    L : int, optional
+        Number of points evaluated in each Bézier curve, by default 64
+    num_pieces : int, optional
+        Number of Bézier curves, by default 1
     """
     control = control.reshape(control.shape[0], -1, 2)
 
@@ -49,7 +63,45 @@ def control_to_curve(
     first_point = jnp.broadcast_to(src, (control.shape[0], 1, 2))
     last_point = jnp.broadcast_to(dst, (control.shape[0], 1, 2))
     control = jnp.hstack([first_point, control, last_point])
-    result: jnp.ndarray = batch_bezier(t=jnp.linspace(0, 1, L), control=control)
+    result: jnp.ndarray
+    if num_pieces > 1:
+        # Ensure that the number of control points is divisible by the number of pieces
+        control_per_piece = control.shape[1] / num_pieces
+        if int(control_per_piece) != control_per_piece:
+            raise ValueError(
+                "The number of control points must be divisible by num_pieces."
+                f"Got {control.shape[1]} control points and {num_pieces} pieces."
+            )
+        else:
+            control_per_piece = int(control_per_piece)
+        # Ensure the number of waypoints is divisible by the number of pieces
+        waypoints_per_piece = (L - 1) / num_pieces + 1
+        if int(waypoints_per_piece) != waypoints_per_piece:
+            L_rec = (int(waypoints_per_piece) - 1) * num_pieces + 1
+            raise ValueError(
+                "The number of waypoints - 1 must be divisible by num_pieces. "
+                f"Got {L} waypoints and {num_pieces} pieces. "
+                f"Consider using {L_rec} waypoints."
+            )
+        else:
+            waypoints_per_piece = int(waypoints_per_piece)
+        # Split the control points into pieces
+        ls_result: list[jnp.ndarray] = []
+        for i in range(num_pieces):
+            start = i * control_per_piece
+            end = (i + 1) * control_per_piece + 1
+            piece = batch_bezier(
+                t=jnp.linspace(0, 1, waypoints_per_piece),
+                control=control[:, start:end],
+            )[:, :-1]
+            # The last point of each piece is omitted to avoid duplicates
+            ls_result.append(piece)
+        # Concatenate the pieces together
+        result = jnp.concatenate(ls_result, axis=1)
+        # Add the destination (last) point (was omitted in the loop)
+        result = jnp.hstack([result, last_point])
+    else:
+        result = batch_bezier(t=jnp.linspace(0, 1, L), control=control)
     return result
 
 
@@ -161,6 +213,7 @@ def _cma_evolution_strategy(
     travel_stw: float | None = None,
     travel_time: float | None = None,
     L: int = 64,
+    num_pieces: int = 1,
     popsize: int = 200,
     sigma0: float | None = None,
     tolfun: float = 1e-4,
@@ -177,7 +230,7 @@ def _cma_evolution_strategy(
 
     while not es.stop():
         X = es.ask()  # sample len(X) candidate solutions
-        curve = control_to_curve(jnp.array(X), src, dst, L=L)
+        curve = control_to_curve(jnp.array(X), src, dst, L=L, num_pieces=num_pieces)
 
         cost: jnp.ndarray = cost_function(
             vectorfield,
@@ -208,6 +261,7 @@ def optimize(
     travel_time: float | None = None,
     K: int = 6,
     L: int = 64,
+    num_pieces: int = 1,
     popsize: int = 200,
     sigma0: float | None = None,
     tolfun: float = 1e-4,
@@ -262,7 +316,9 @@ def optimize(
     tuple[jnp.ndarray, float]
         The optimized curve (shape L x 2), and the fuel cost
     """
-    x0 = jnp.linspace(src, dst, K).flatten()  # initial solution
+    if K < 3:
+        raise ValueError("The number of control points must be at least 3")
+    x0 = jnp.linspace(src, dst, K - 2).flatten()  # initial solution
     # initial standard deviation to sample new solutions
     sigma0 = float(jnp.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
 
@@ -288,7 +344,9 @@ def optimize(
         print("Fuel cost:", es.best.f)
 
     Xbest = es.best.x[None, :]
-    curve_best: jnp.ndarray = control_to_curve(Xbest, src, dst, L=L)[0, ...]
+    curve_best: jnp.ndarray = control_to_curve(
+        Xbest, src, dst, L=L, num_pieces=num_pieces
+    )[0, ...]
     return curve_best, es.best.f
 
 
@@ -306,6 +364,7 @@ def optimize_with_increasing_penalization(
     travel_time: float | None = None,
     K: int = 6,
     L: int = 64,
+    num_pieces: int = 1,
     popsize: int = 200,
     sigma0: float | None = None,
     tolfun: float = 1e-4,
@@ -364,7 +423,9 @@ def optimize_with_increasing_penalization(
     tuple[list[jnp.ndarray], list[float]]
         The list of optimized curves (each with shape L x 2), and the list of fuel costs
     """
-    x0 = jnp.linspace(src, dst, K).flatten()  # initial solution
+    if K < 3:
+        raise ValueError("The number of control points must be at least 3")
+    x0 = jnp.linspace(src, dst, K - 2).flatten()  # initial solution
     # initial standard deviation to sample new solutions
     sigma0 = float(jnp.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
 
@@ -398,7 +459,9 @@ def optimize_with_increasing_penalization(
             print("Fuel cost:", es.best.f)
 
         Xbest = es.best.x[None, :]
-        curve: jnp.ndarray = control_to_curve(Xbest, src, dst, L=L)[0, ...]
+        curve: jnp.ndarray = control_to_curve(
+            Xbest, src, dst, L=L, num_pieces=num_pieces
+        )[0, ...]
         # sigma0 = es.sigma0
         if land(curve, interpolate=100).any():
             penalty += penalty_increment

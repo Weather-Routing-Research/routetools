@@ -34,6 +34,7 @@ def test_cmaes(
     src: jnp.array,
     dst: jnp.array,
     optimize_time: bool,
+    L: int = 64,
 ):
     curve, cost = optimize(
         vectorfield,
@@ -41,11 +42,13 @@ def test_cmaes(
         dst=dst,
         travel_stw=None if optimize_time else 1,
         travel_time=10 if optimize_time else None,
+        L=L,
         popsize=10,
         sigma0=5,
         tolfun=0.1,
     )
     assert isinstance(curve, jnp.ndarray)
+    assert curve.shape[0] == L
     assert curve.shape[1] == 2
     assert isinstance(cost, float)
 
@@ -96,5 +99,65 @@ def test_cmaes_with_land(
         tolfun=0.1,
     )
     assert isinstance(curve, jnp.ndarray)
+    assert curve.shape[1] == 2
+    assert isinstance(cost, float)
+
+
+@pytest.mark.parametrize(
+    "vectorfield, src, dst, optimize_time, K, L, num_pieces",
+    [
+        (
+            vectorfield_fourvortices,
+            jnp.array([0, 0]),
+            jnp.array([6, 2]),
+            True,
+            3,
+            43,
+            3,
+        ),
+        (
+            vectorfield_fourvortices,
+            jnp.array([0, 0]),
+            jnp.array([6, 2]),
+            False,
+            6,
+            64,
+            3,
+        ),
+        (
+            vectorfield_techy,
+            jnp.array([jnp.cos(jnp.pi / 6), jnp.sin(jnp.pi / 6)]),
+            jnp.array([0, 1]),
+            True,
+            6,
+            61,
+            6,
+        ),
+    ],
+)
+def test_cmaes_piecewise(
+    vectorfield: callable,
+    src: jnp.array,
+    dst: jnp.array,
+    optimize_time: bool,
+    K: int,
+    L: int,
+    num_pieces: int,
+):
+    curve, cost = optimize(
+        vectorfield,
+        src=src,
+        dst=dst,
+        travel_stw=None if optimize_time else 1,
+        travel_time=10 if optimize_time else None,
+        K=K,
+        L=L,
+        num_pieces=num_pieces,
+        popsize=10,
+        sigma0=5,
+        tolfun=0.1,
+    )
+    assert isinstance(curve, jnp.ndarray)
+    assert curve.shape[0] == L
     assert curve.shape[1] == 2
     assert isinstance(cost, float)
