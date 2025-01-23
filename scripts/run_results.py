@@ -69,6 +69,7 @@ def run_param_configuration(
         travel_time=params.get("travel_time"),
         K=params.get("K", 6),
         L=params.get("L", 64),
+        num_pieces=params.get("num_pieces", 1),
         popsize=params.get("popsize", 2000),
         sigma0=params.get("sigma0"),
         tolfun=params.get("tolfun", 0.0001),
