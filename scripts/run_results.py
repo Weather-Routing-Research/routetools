@@ -56,6 +56,11 @@ def run_param_configuration(
     vfname = params["vectorfield"]
     vectorfield = params["vectorfield_fun"]
 
+    # Initialize list
+    ls_curves = []
+    ls_names = []
+    ls_costs = []
+
     # CMA-ES optimization algorithm
     start = time.time()
 
@@ -76,8 +81,10 @@ def run_param_configuration(
     )
     if land(curve).any():
         print("The curve is on land")
-        curve = None
         cost = jnp.inf
+    ls_curves.append(curve)
+    ls_names.append("CMA-ES")
+    ls_costs.append(cost)
 
     comp_time = time.time() - start
 
@@ -96,6 +103,12 @@ def run_param_configuration(
         )
         # FMS returns an extra dimensions, we ignore that
         curve_fms, cost_fms = curve_fms[0], cost_fms[0]
+        if land(curve_fms).any():
+            print("The curve is on land")
+            cost_fms = jnp.inf
+        ls_curves.append(curve_fms)
+        ls_names.append("FMS")
+        ls_costs.append(cost_fms)
     except Exception as e:
         print(e)
         curve_fms = None
@@ -113,12 +126,12 @@ def run_param_configuration(
     }
 
     # Plot them
-    if curve is not None:
+    if len(ls_curves) > 0:
         plot_curve(
             vectorfield,
-            [curve, curve_fms],
-            ls_name=["CMA-ES", "FMS"],
-            ls_cost=[cost, cost_fms],
+            ls_curves,
+            ls_name=ls_names,
+            ls_cost=ls_costs,
             land=land,
             xlim=xlim,
             ylim=ylim,
