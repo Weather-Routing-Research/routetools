@@ -130,7 +130,7 @@ class Land:
 
         # Use bilinear interpolation to check if the points are on land
         land_values = map_coordinates(
-            self._array, [x_norm, y_norm], order=1, mode="nearest"
+            self._array, [x_norm, y_norm], order=0, mode="nearest"
         )
 
         # Return a boolean array where land_values > 0 indicates land
