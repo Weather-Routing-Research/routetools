@@ -474,7 +474,7 @@ def optimize_with_increasing_penalization(
             Xbest, src, dst, L=L, num_pieces=num_pieces
         )[0, ...]
         # sigma0 = es.sigma0
-        if land(curve, interpolate=100).any():
+        if land(curve).any():
             penalty += penalty_increment
             x0 = es.best.x
         else:

@@ -83,7 +83,7 @@ def run_param_configuration(
 
     # FMS variational algorithm (refinement)
     start = time.time()
-    if not land(ls_curve[-1], interpolate=100).any():
+    if not land(ls_curve[-1]).any():
         curve_fms, cost_fms = optimize_fms(
             vectorfield,
             curve=ls_curve[-1],
