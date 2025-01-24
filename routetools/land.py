@@ -65,6 +65,8 @@ class Land:
         land = pn2d((lenx, leny), res=resolution)
         # Normalize land between 0 and 1
         land = (land - jnp.min(land)) / (jnp.max(land) - jnp.min(land))
+        # No land should be absolutely 0
+        land = jnp.clip(land, 1e-6, 1)
 
         # Store the class properties
         self._array = jnp.array(land)
@@ -86,7 +88,7 @@ class Land:
     @property
     def array(self) -> jnp.ndarray:
         """Return a boolean array indicating land presence."""
-        return jnp.asarray((self._array >= self.water_level).astype(int))
+        return jnp.asarray((self._array > self.water_level).astype(int))
 
     @partial(jit, static_argnums=(0,))
     def __call__(self, curve: jnp.ndarray) -> jnp.ndarray:
@@ -134,7 +136,7 @@ class Land:
         )
 
         # Return a boolean array where land_values > 0 indicates land
-        is_land = jnp.asarray(land_values >= self.water_level)
+        is_land = jnp.asarray(land_values > self.water_level)
 
         # Find points outside the limits
         if self.outbounds_is_land:
@@ -151,7 +153,7 @@ class Land:
             is_land = jnp.convolve(is_land, jnp.ones(interpolate + 1), mode="full")[
                 :: interpolate + 1
             ]
-        return is_land
+        return jnp.clip(is_land, 0, 1)
 
     def penalization(self, curve: jnp.ndarray, penalty: float) -> jnp.ndarray:
         """
@@ -169,14 +171,11 @@ class Land:
         penalty : float
             The penalty for passing through land.
         """
-
         # Check if the curve passes through land
-        def func(curve: jnp.ndarray) -> jnp.ndarray:
-            return self.__call__(curve)
-
-        is_land = jax.vmap(func)(curve)
+        is_land = jax.vmap(self)(curve)
 
         # Consecutive points on land count as one
         is_land = jnp.diff(is_land, axis=1) != 0
 
+        # Return the sum of the number of land intersections times the penalty
         return jnp.sum(is_land, axis=1) * penalty

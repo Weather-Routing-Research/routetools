@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+import pytest
 
 from routetools.land import Land
 
@@ -11,29 +12,39 @@ def test_generate_land_array():
     assert land.array.min() == 0
 
 
-def test_water_level():
+@pytest.mark.parametrize("water_level", [0, 1])
+def test_water_level(water_level: float):
     xlim = [-5, 5]
-    # When the water level is at 0, the land array should be all land
-    land = Land(xlim, xlim, water_level=0, random_seed=1)
-    assert land.array.min() == 1
-    # When the water level is over 1, the land array should be all water
-    land = Land(xlim, xlim, water_level=1.1, random_seed=1)
-    assert land.array.max() == 0
+    land = Land(xlim, xlim, water_level=water_level, random_seed=1)
+    assert land.array.mean() == (1 - water_level)
 
 
-def test_land_function():
+def test_land_inbounds():
     xlim = [-5, 5]
     x = jnp.linspace(-5, 5, 100)
     # First generate the array
-    land = Land(xlim, xlim, water_level=0.5, random_seed=1, resolution=10)
+    land = Land(
+        xlim, xlim, water_level=0.5, random_seed=1, resolution=10, interpolate=0
+    )
     # Prepare a curve of (X, X) coordinates
     curve = jnp.stack([x, x], axis=-1)
+    out = land(curve)
+    expected = jnp.diag(land.array)
     # This curve should return the diagonal of the land array
-    assert jnp.all(land(curve) == jnp.diag(land.array))
+    assert jnp.allclose(out, expected)
 
+
+def test_land_outbounds():
+    xlim = [-5, 5]
+    # First generate the array
+    land = Land(
+        xlim, xlim, water_level=0.5, random_seed=1, resolution=10, interpolate=0
+    )
     # A point outside the limits should return the closest
     out = land(jnp.array([[-6], [-5]]))
-    assert jnp.all(out == land.array[0, 0])
+    expected = land.array[0, 0]
+    assert jnp.allclose(out, expected)
     # Same in both bounds
     out = land(jnp.array([[6], [5]]))
-    assert jnp.all(out == land.array[-1, -1])
+    expected = land.array[-1, -1]
+    assert jnp.allclose(out, expected)
