@@ -7,6 +7,9 @@ from matplotlib.lines import Line2D
 from routetools.fms import optimize_fms
 from routetools.vectorfield import vectorfield_zero
 
+# Weight of the noise
+w = 2
+
 fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(10, 10))
 
 for ax in axs.flatten():
@@ -16,14 +19,36 @@ for ax in axs.flatten():
 # Initial route straight from (0,0) to (6,6)
 x = jnp.linspace(0, 6, 100)
 y = jnp.linspace(0, 6, 100)
-# Add random noise to the x coordinate
-x = x.at[1:99].set(x[1:99] + jax.random.normal(jax.random.PRNGKey(0), (98,)))
-route = jnp.stack([x, y], axis=-1)
-# Replicate to (4, 100, 100)
-routes = jnp.stack([route] * 4)
-(line_route,) = axs[0, 0].plot(route[0, 0], route[0, 1], "r-", marker="o")
-txt_iter = axs[0, 0].text(0.5, 5.5, "Iteration: 0", fontsize=12, color="black")
-txt_cost = axs[0, 0].text(0.5, 5.0, "Cost: ?", fontsize=12, color="black")
+routes = jnp.stack([x, y], axis=1)
+# Replicate (100, 2) to (4, 100, 2)
+routes = jnp.repeat(routes[None, ...], 4, axis=0)
+
+key = jax.random.PRNGKey(0)
+# Route 0: Add random noise to the X-axis
+routes = routes.at[0, 1:99, 0].set(
+    routes[0, 1:99, 0] + w * jax.random.normal(key, (98,))
+)
+# Route 1: Add random noise to the Y-axis
+routes = routes.at[1, 1:99, 1].set(
+    routes[1, 1:99, 1] + w * jax.random.normal(key, (98,))
+)
+# Route 2: Add random noise to both the X-axis and Y-axis
+routes = routes.at[2, 1:99].set(routes[2, 1:99] + w * jax.random.normal(key, (98, 2)))
+# Route 3: Add a sinusoidal noise to the X-axis
+routes = routes.at[3, :, 0].set(
+    routes[3, :, 0] + w * jnp.sin(jnp.pi * jnp.linspace(0, 2, 100))
+)
+
+# Initialize list of lines
+ls_lines = []
+ls_txt = []
+
+for idx, ax in enumerate(axs.flatten()):
+    (line,) = ax.plot(routes[idx, :, 0], routes[idx, :, 1], "r-", marker="o")
+    txt_iter = ax.text(0.5, 5.5, "Iteration: 0", fontsize=12, color="black")
+    txt_cost = ax.text(0.5, 5.0, "Cost: ?", fontsize=12, color="black")
+    ls_lines.append(line)
+    ls_txt.append((txt_iter, txt_cost))
 
 
 def animate(frame: int) -> list[Line2D]:
@@ -33,15 +58,13 @@ def animate(frame: int) -> list[Line2D]:
         vectorfield_zero, curve=routes, travel_stw=1, maxiter=1, verbose=False
     )
     for idx in range(4):
-        line_route.set_data(route[idx, 0], route[idx, 1])
-        txt_iter.set_text(f"Iteration: {frame}")
-        txt_cost.set_text(f"Cost: {costs[0]:.2f}")
-    return [
-        line_route,
-    ]
+        ls_lines[idx].set_data(routes[idx, :, 0], routes[idx, :, 1])
+        ls_txt[idx][0].set_text(f"Iteration: {frame}")
+        ls_txt[idx][1].set_text(f"Cost: {costs[idx]:.2f}")
+    return ls_lines + [txt for txt, _ in ls_txt] + [txt for _, txt in ls_txt]
 
 
-anim = animation.FuncAnimation(fig, animate, frames=10, blit=True)
+anim = animation.FuncAnimation(fig, animate, frames=500, blit=True)
 
 # Save the animation
-anim.save("fms.gif", writer="pillow", fps=30)
+anim.save("output/fms.gif", writer="pillow", fps=30)
