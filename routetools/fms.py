@@ -252,7 +252,7 @@ def optimize_fms(
 
     # Loop iterations
     idx = 0
-    while (delta >= tolfun).any():
+    while (idx < maxiter) & (delta >= tolfun).any():
         cost_old = cost_now
         curve_old = curve.copy()
         curve = solve_vectorized(curve)
@@ -270,9 +270,6 @@ def optimize_fms(
         )
         delta = 1 - cost_now / cost_old
         idx += 1
-        # Break if the maximum number of iterations is reached
-        if idx > maxiter:
-            break
 
     if verbose:
         print("FMS - Number of iterations:", idx)
