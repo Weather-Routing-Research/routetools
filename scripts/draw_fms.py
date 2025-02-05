@@ -9,6 +9,9 @@ from routetools.vectorfield import vectorfield_zero
 
 # Weight of the noise
 w = 2
+maxiter = 50
+damping = 0.1
+frames = 200
 
 fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(10, 10))
 
@@ -55,16 +58,21 @@ def animate(frame: int) -> list[Line2D]:
     global routes
     # Run the FMS for one step
     routes, costs = optimize_fms(
-        vectorfield_zero, curve=routes, travel_stw=1, maxiter=1, verbose=False
+        vectorfield_zero,
+        curve=routes,
+        damping=damping,
+        travel_stw=1,
+        maxiter=maxiter,
+        verbose=False,
     )
     for idx in range(4):
         ls_lines[idx].set_data(routes[idx, :, 0], routes[idx, :, 1])
-        ls_txt[idx][0].set_text(f"Iteration: {frame}")
+        ls_txt[idx][0].set_text(f"Iteration: {frame*maxiter}")
         ls_txt[idx][1].set_text(f"Cost: {costs[idx]:.2f}")
     return ls_lines + [txt for txt, _ in ls_txt] + [txt for _, txt in ls_txt]
 
 
-anim = animation.FuncAnimation(fig, animate, frames=500, blit=True)
+anim = animation.FuncAnimation(fig, animate, frames=frames, blit=True)
 
 # Save the animation
-anim.save("output/fms.gif", writer="pillow", fps=30)
+anim.save("output/fms.gif", writer="pillow", fps=10)
