@@ -186,6 +186,8 @@ class Land:
 
         # Interpolate back to the original size
         is_land = jnp.convolve(is_land, jnp.ones(n + 1), mode="full")[:: n + 1]
+        # When a point is on land, mark neighbors too
+        is_land = jnp.convolve(is_land, jnp.ones(3), mode="same") > 0
         return jnp.clip(is_land, 0, 1).astype(bool)
 
     def __call__(self, curve: jnp.ndarray) -> jnp.ndarray:
