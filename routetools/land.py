@@ -1,8 +1,10 @@
+from functools import partial
 from math import ceil
 
 import jax
 import jax.numpy as jnp
 import numpy as np
+from jax import jit
 from jax.scipy.ndimage import map_coordinates
 from perlin_numpy import generate_perlin_noise_2d as pn2d
 
@@ -16,6 +18,7 @@ class Land:
         ylim: tuple[float, float],
         water_level: float = 0.7,
         resolution: int | tuple[int, int] | None = None,
+        interpolate: int = 100,
         outbounds_is_land: bool = False,
         random_seed: int | None = None,
     ):
@@ -33,6 +36,8 @@ class Land:
             resolution of the noise, or density of the land. Each entry must be divisors
             of the length of x and y respectively. Higher resolution generates more
             detailed land, by default (1, 1)
+        interpolate : int, optional
+            The number of times to interpolate the curve, by default 100
         outbounds_is_land : bool, optional
             if True, points outside the limits are considered land, by default False
         random_seed : int, optional
@@ -60,6 +65,8 @@ class Land:
         land = pn2d((lenx, leny), res=resolution)
         # Normalize land between 0 and 1
         land = (land - jnp.min(land)) / (jnp.max(land) - jnp.min(land))
+        # No land should be absolutely 0
+        land = jnp.clip(land, 1e-6, 1)
 
         # Store the class properties
         self._array = jnp.array(land)
@@ -75,24 +82,30 @@ class Land:
         self.random_seed = random_seed
         self.water_level = water_level
         self.shape = self._array.shape
+        self.interpolate = interpolate
         self.outbounds_is_land = outbounds_is_land
 
     @property
     def array(self) -> jnp.ndarray:
         """Return a boolean array indicating land presence."""
-        return jnp.asarray((self._array >= self.water_level).astype(int))
+        return jnp.asarray((self._array > self.water_level).astype(int))
 
-    def __call__(
-        self,
-        curve: jnp.ndarray,
-        interpolate: int = 0,
-    ) -> jnp.ndarray:
+    @partial(jit, static_argnums=(0,))
+    def __call__(self, curve: jnp.ndarray) -> jnp.ndarray:
         """
         Check if points on a curve are on land using bilinear interpolation.
 
-        :param curve: a batch of curves (an array of shape W x L x 2)
-        :return: a boolean array of shape (W, L) indicating if each point is on land
+        Parameters
+        ----------
+        curve : jnp.ndarray
+            a batch of curves (an array of shape W x L x 2)
+
+        Returns
+        -------
+        jnp.ndarray
+            a boolean array of shape (W, L) indicating if each point is on land
         """
+        interpolate = 0 if curve.ndim == 1 else self.interpolate
         if interpolate > 0:
             # Interpolate x times to check if the curve passes through land
             curve_new = jnp.repeat(curve, interpolate + 1, axis=0)
@@ -119,11 +132,11 @@ class Land:
 
         # Use bilinear interpolation to check if the points are on land
         land_values = map_coordinates(
-            self._array, [x_norm, y_norm], order=1, mode="nearest"
+            self._array, [x_norm, y_norm], order=0, mode="nearest"
         )
 
         # Return a boolean array where land_values > 0 indicates land
-        is_land = jnp.asarray(land_values >= self.water_level)
+        is_land = jnp.asarray(land_values > self.water_level)
 
         # Find points outside the limits
         if self.outbounds_is_land:
@@ -140,14 +153,9 @@ class Land:
             is_land = jnp.convolve(is_land, jnp.ones(interpolate + 1), mode="full")[
                 :: interpolate + 1
             ]
-        return is_land
+        return jnp.clip(is_land, 0, 1)
 
-    def penalization(
-        self,
-        curve: jnp.ndarray,
-        penalty: float,
-        interpolate: int = 100,
-    ) -> jnp.ndarray:
+    def penalization(self, curve: jnp.ndarray, penalty: float) -> jnp.ndarray:
         """
         Return an array indicating land presence, in one of two versions.
 
@@ -162,14 +170,12 @@ class Land:
             A batch of curves (an array of shape W x L x 2)
         penalty : float
             The penalty for passing through land.
-        interpolate : int, optional
-            The number of times to interpolate the curve, by default 100
         """
-
         # Check if the curve passes through land
-        def func(curve: jnp.ndarray) -> jnp.ndarray:
-            return self.__call__(curve, interpolate=interpolate)
+        is_land = jax.vmap(self)(curve)
 
-        is_land = jax.vmap(func)(curve)
+        # Consecutive points on land count as one
+        is_land = jnp.diff(is_land, axis=1) != 0
 
+        # Return the sum of the number of land intersections times the penalty
         return jnp.sum(is_land, axis=1) * penalty
