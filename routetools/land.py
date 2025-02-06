@@ -90,6 +90,7 @@ class Land:
         """Return a boolean array indicating land presence."""
         return jnp.asarray((self._array > self.water_level).astype(int))
 
+    @partial(jit, static_argnums=(0,))
     def _check_nointerp(self, curve: jnp.ndarray) -> jnp.ndarray:
         """
         Check if points on a curve are on land using bilinear interpolation.
@@ -190,6 +191,7 @@ class Land:
         is_land = jnp.convolve(is_land, jnp.ones(3), mode="same") > 0
         return jnp.clip(is_land, 0, 1).astype(bool)
 
+    @partial(jit, static_argnums=(0,))
     def __call__(self, curve: jnp.ndarray) -> jnp.ndarray:
         """
         Check if points on a curve are on land.
@@ -204,18 +206,20 @@ class Land:
         jnp.ndarray
             a boolean array of shape (W, L) indicating if each point is on land
         """
+        is_land: jnp.ndarray
         if curve.ndim == 1:
-            return self._check_nointerp(curve)
+            is_land = self._check_nointerp(curve)
         elif curve.ndim == 2:
             if self.interpolate == 0:
-                return self._check_nointerp(curve)
+                is_land = self._check_nointerp(curve)
             else:
-                return self._check_interp(curve)
+                is_land = self._check_interp(curve)
         else:
             if self.interpolate == 0:
-                return jax.vmap(self._check_nointerp)(curve)
+                is_land = jax.vmap(self._check_nointerp)(curve)
             else:
-                return jax.vmap(self._check_interp)(curve)
+                is_land = jax.vmap(self._check_interp)(curve)
+        return is_land
 
     def penalization(self, curve: jnp.ndarray, penalty: float) -> jnp.ndarray:
         """
