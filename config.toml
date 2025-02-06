@@ -60,6 +60,6 @@ tolfun = [1e-6]
 seed = [0]
 
 [refiner.fms]
-tolfun = [1e-6]
+tolfun = [1e-10]
 damping = [0.1]
 maxiter = [50000]
