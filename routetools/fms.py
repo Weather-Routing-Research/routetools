@@ -250,18 +250,21 @@ def optimize_fms(
     )
     delta = jnp.array([jnp.inf])
 
+    # Make a dummy land function if none is provided
+    if land is None:
+
+        def land(curve: jnp.ndarray) -> jnp.ndarray:
+            return jnp.zeros(curve.shape[:-1])
+
     # Loop iterations
     idx = 0
     while (idx < maxiter) & (delta >= tolfun).any():
         cost_old = cost_now
         curve_old = curve.copy()
         curve = solve_vectorized(curve)
-        # When land is provided, check if the points are on land
-        if land is not None:
-            is_land = land.penalization(curve, 1) > 0  # boolean mask
-            # Any point that has been moved to land is reset to its previous position
-            if is_land.any():
-                curve = curve.at[is_land].set(curve_old[is_land])
+        # Replace points on land with previous iteration
+        is_land = land(curve) > 0
+        curve = jnp.where(is_land[..., None], curve_old, curve)
         cost_now = cost_function(
             vectorfield,
             curve,

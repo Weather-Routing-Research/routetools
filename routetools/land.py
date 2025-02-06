@@ -90,37 +90,73 @@ class Land:
         """Return a boolean array indicating land presence."""
         return jnp.asarray((self._array > self.water_level).astype(int))
 
-    @partial(jit, static_argnums=(0,))
-    def __call__(self, curve: jnp.ndarray) -> jnp.ndarray:
+    def _check_nointerp(self, curve: jnp.ndarray) -> jnp.ndarray:
         """
         Check if points on a curve are on land using bilinear interpolation.
 
         Parameters
         ----------
         curve : jnp.ndarray
-            a batch of curves (an array of shape W x L x 2)
+            a batch of curves (an array of shape 2 or L x 2 or W x L x 2)
 
         Returns
         -------
         jnp.ndarray
-            a boolean array of shape (W, L) indicating if each point is on land
+            a boolean array of shape (1,) or (L,) or (W, L) indicating
+            if each point is on land
         """
-        interpolate = 0 if curve.ndim == 1 else self.interpolate
-        if interpolate > 0:
-            # Interpolate x times to check if the curve passes through land
-            curve_new = jnp.repeat(curve, interpolate + 1, axis=0)
-            left = jnp.concatenate(
-                [jnp.arange(interpolate + 2, 1, -1)] * (curve.shape[0] - 1)
+        # Extract x and y coordinates from the curve
+        x_coords = curve[..., 0]
+        y_coords = curve[..., 1]
+
+        # Shift the coordinates to start at the limits
+        x_norm = (x_coords - self.xmin) * self.xnorm
+        y_norm = (y_coords - self.ymin) * self.ynorm
+
+        # Use bilinear interpolation to check if the points are on land
+        land_values = map_coordinates(
+            self._array, [x_norm, y_norm], order=0, mode="nearest"
+        )
+
+        # Return a boolean array where land_values > 0 indicates land
+        is_land = jnp.asarray(land_values > self.water_level)
+
+        # Find points outside the limits
+        if self.outbounds_is_land:
+            is_out = (
+                (x_coords < self.xmin)
+                | (x_coords > self.xmax)
+                | (y_coords < self.ymin)
+                | (y_coords > self.ymax)
             )
-            right = jnp.concatenate(
-                [jnp.arange(0, interpolate + 1, 1)] * (curve.shape[0] - 1)
-            )
-            left = curve_new[: -(interpolate + 1), :] * left[:, None]
-            right = curve_new[(interpolate + 1) :, :] * right[:, None]
-            interp = (left + right) / (interpolate + 2)
-            curve_new = curve_new.at[: -(interpolate + 1)].set(interp)[:-interpolate, :]
-        else:
-            curve_new = curve
+            is_land = is_land | is_out
+        return jnp.clip(is_land, 0, 1).astype(bool)
+
+    @partial(jit, static_argnums=(0,))
+    def _check_interp(self, curve: jnp.ndarray) -> jnp.ndarray:
+        """
+        Check if points on a curve are on land using bilinear interpolation.
+
+        Parameters
+        ----------
+        curve : jnp.ndarray
+            a batch of curves (an array of shape L x 2 or W x L x 2)
+
+        Returns
+        -------
+        jnp.ndarray
+            a boolean array of shape (L,) or (W, L) indicating if each point is on land
+        """
+        n = self.interpolate
+
+        # Interpolate x times to check if the curve passes through land
+        curve_new = jnp.repeat(curve, n + 1, axis=0)
+        left = jnp.concatenate([jnp.arange(n + 2, 1, -1)] * (curve.shape[0] - 1))
+        right = jnp.concatenate([jnp.arange(0, n + 1, 1)] * (curve.shape[0] - 1))
+        left = curve_new[: -(n + 1), :] * left[:, None]
+        right = curve_new[(n + 1) :, :] * right[:, None]
+        interp = (left + right) / (n + 2)
+        curve_new = curve_new.at[: -(n + 1)].set(interp)[:-n, :]
 
         # Extract x and y coordinates from the curve
         x_coords = curve_new[..., 0]
@@ -149,11 +185,35 @@ class Land:
             is_land = is_land | is_out
 
         # Interpolate back to the original size
-        if interpolate > 0:
-            is_land = jnp.convolve(is_land, jnp.ones(interpolate + 1), mode="full")[
-                :: interpolate + 1
-            ]
-        return jnp.clip(is_land, 0, 1)
+        is_land = jnp.convolve(is_land, jnp.ones(n + 1), mode="full")[:: n + 1]
+        return jnp.clip(is_land, 0, 1).astype(bool)
+
+    def __call__(self, curve: jnp.ndarray) -> jnp.ndarray:
+        """
+        Check if points on a curve are on land.
+
+        Parameters
+        ----------
+        curve : jnp.ndarray
+            a batch of curves (an array of shape W x L x 2)
+
+        Returns
+        -------
+        jnp.ndarray
+            a boolean array of shape (W, L) indicating if each point is on land
+        """
+        if curve.ndim == 1:
+            return self._check_nointerp(curve)
+        elif curve.ndim == 2:
+            if self.interpolate == 0:
+                return self._check_nointerp(curve)
+            else:
+                return self._check_interp(curve)
+        else:
+            if self.interpolate == 0:
+                return jax.vmap(self._check_nointerp)(curve)
+            else:
+                return jax.vmap(self._check_interp)(curve)
 
     def penalization(self, curve: jnp.ndarray, penalty: float) -> jnp.ndarray:
         """
@@ -172,7 +232,7 @@ class Land:
             The penalty for passing through land.
         """
         # Check if the curve passes through land
-        is_land = jax.vmap(self)(curve)
+        is_land = self(curve)
 
         # Consecutive points on land count as one
         is_land = jnp.diff(is_land, axis=1) != 0
