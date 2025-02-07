@@ -2,6 +2,8 @@ from collections.abc import Callable
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from routetools.land import Land
 
@@ -16,7 +18,7 @@ def plot_curve(
     land: Land | None = None,
     xlim: tuple[float, float] = (jnp.inf, -jnp.inf),
     ylim: tuple[float, float] = (jnp.inf, -jnp.inf),
-) -> tuple[plt.Figure, plt.Axes]:
+) -> tuple[Figure, Axes]:
     """Plot the vectorfield and the curves.
 
     Parameters
@@ -39,6 +41,11 @@ def plot_curve(
         x limits, by default None
     ylim : tuple | None, optional
         y limits, by default None
+
+    Returns
+    -------
+    tuple[Figure, Axes]
+        Figure and Axes objects
     """
     # Set default parameters
     if ls_name is None:
