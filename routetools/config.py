@@ -91,9 +91,16 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
 
     # Finally, do the same for the land
     keys, values = zip(*dict_land.items(), strict=False)
-    ls_lndparams = [
-        dict(zip(keys, v, strict=False)) for v in itertools.product(*values)
-    ]
+    ls_lndparams = []
+    for v in itertools.product(*values):
+        new_dict = dict(zip(keys, v, strict=False))
+        # If water_level is 1.0, we don't need to specify resolution or seed
+        if new_dict["water_level"] >= 1.0:
+            new_dict.pop("resolution")
+            new_dict.pop("random_seed")
+        # Include to the list if is not duplicated
+        if new_dict not in ls_lndparams:
+            ls_lndparams.append(new_dict)
 
     # Create all possible combinations of vectorfield and optimizer parameters
     # into a list of dictionaries
