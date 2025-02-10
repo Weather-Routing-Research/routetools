@@ -148,7 +148,7 @@ def run_param_configuration(
 
 
 def main(
-    max_workers: int = 12,
+    max_workers: int = 16,
     path_config: str = "config.toml",
     path_results: str = "output",
 ):
