@@ -1,5 +1,6 @@
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
@@ -97,8 +98,9 @@ def run_param_configuration(
             land=land,
             travel_stw=params.get("travel_stw"),
             travel_time=params.get("travel_time"),
-            tolfun=params.get("refiner_tolfun", 0.0001),
+            tolfun=params.get("refiner_tolfun", 1e-6),
             damping=params.get("refiner_damping", 0.9),
+            maxiter=params.get("refiner_maxiter", 50000),
             verbose=True,
         )
         # FMS returns an extra dimensions, we ignore that
@@ -127,7 +129,7 @@ def run_param_configuration(
 
     # Plot them
     if len(ls_curves) > 0:
-        plot_curve(
+        fig, ax = plot_curve(
             vectorfield,
             ls_curves,
             ls_name=ls_names,
@@ -136,20 +138,26 @@ def run_param_configuration(
             xlim=xlim,
             ylim=ylim,
         )
-        plt.title(f"{vfname}")
-        plt.savefig(f"{path_imgs}/fig{fignum:04d}.png")
-        plt.close()
+        ax.set_title(f"{vfname}")
+        fig.savefig(f"{path_imgs}/fig{fignum:04d}.png")
+        plt.close(fig)
 
     print("\n------------------------\n")
 
     return results
 
 
-def main(path_config: str = "config.toml", path_results: str = "output"):
+def main(
+    max_workers: int = 16,
+    path_config: str = "config.toml",
+    path_results: str = "output",
+):
     """Run the results.
 
     Parameters
     ----------
+    max_workers : int, optional
+        Number of workers to use, by default 12
     path_config : str, optional
         Path to the configuration file, by default "config.toml"
     path_results : str, optional
@@ -166,8 +174,14 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
     # Initialize list of results
     results: list[dict] = []
 
-    for idx, params in enumerate(ls_params):
-        results.append(run_param_configuration(params, path_imgs=path_imgs, fignum=idx))
+    # Use ThreadPoolExecutor to parallelize the execution
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(run_param_configuration, params, path_imgs, idx)
+            for idx, params in enumerate(ls_params)
+        ]
+        for future in as_completed(futures):
+            results.append(future.result())
 
     # Save the results to a csv file using pandas
     df = pd.DataFrame(results)

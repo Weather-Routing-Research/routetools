@@ -252,16 +252,14 @@ def optimize_fms(
 
     # Loop iterations
     idx = 0
-    while (delta >= tolfun).any():
+    while (idx < maxiter) & (delta >= tolfun).any():
         cost_old = cost_now
         curve_old = curve.copy()
         curve = solve_vectorized(curve)
-        # When land is provided, check if the points are on land
+        # Replace points on land with previous iteration
         if land is not None:
-            is_land = land.penalization(curve, 1) > 0  # boolean mask
-            # Any point that has been moved to land is reset to its previous position
-            if is_land.any():
-                curve = curve.at[is_land].set(curve_old[is_land])
+            is_land = land(curve) > 0
+            curve = jnp.where(is_land[..., None], curve_old, curve)
         cost_now = cost_function(
             vectorfield,
             curve,
@@ -270,9 +268,6 @@ def optimize_fms(
         )
         delta = 1 - cost_now / cost_old
         idx += 1
-        # Break if the maximum number of iterations is reached
-        if idx > maxiter:
-            break
 
     if verbose:
         print("FMS - Number of iterations:", idx)

@@ -2,6 +2,8 @@ from collections.abc import Callable
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from routetools.land import Land
 
@@ -16,7 +18,7 @@ def plot_curve(
     land: Land | None = None,
     xlim: tuple[float, float] = (jnp.inf, -jnp.inf),
     ylim: tuple[float, float] = (jnp.inf, -jnp.inf),
-) -> None:
+) -> tuple[Figure, Axes]:
     """Plot the vectorfield and the curves.
 
     Parameters
@@ -39,6 +41,11 @@ def plot_curve(
         x limits, by default None
     ylim : tuple | None, optional
         y limits, by default None
+
+    Returns
+    -------
+    tuple[Figure, Axes]
+        Figure and Axes objects
     """
     # Set default parameters
     if ls_name is None:
@@ -46,12 +53,13 @@ def plot_curve(
     if ls_cost is None:
         ls_cost = []
 
-    plt.figure()
+    fig = plt.figure()
+    ax = plt.gca()
 
     # Plot the land
     if land is not None:
         # Land is a boolean array, so we need to use contourf
-        plt.contourf(
+        ax.contourf(
             land.x,
             land.y,
             land.array.T,
@@ -69,7 +77,7 @@ def plot_curve(
         if len(ls_cost) == len(ls_curve):
             cost = ls_cost[idx]
             label += f" {cost:.3f}"
-        plt.plot(
+        ax.plot(
             curve[:, 0], curve[:, 1], marker="o", markersize=2, label=label, zorder=2
         )
         # Update limits according to the curve
@@ -85,8 +93,8 @@ def plot_curve(
     # Plot the start and end points
     src = curve[0]
     dst = curve[-1]
-    plt.plot(src[0], src[1], "o", color="blue", zorder=3)
-    plt.plot(dst[0], dst[1], "o", color="green", zorder=3)
+    ax.plot(src[0], src[1], "o", color="blue", zorder=3)
+    ax.plot(dst[0], dst[1], "o", color="green", zorder=3)
 
     # Plot the vectorfield
     xvf = jnp.arange(xlim[0] - 0.5, xlim[1] + 0.5, 0.25)
@@ -94,13 +102,15 @@ def plot_curve(
     t = 0
     X, Y = jnp.meshgrid(xvf, yvf)
     U, V = vectorfield(X, Y, t)
-    plt.quiver(X, Y, U, V, zorder=1)
+    ax.quiver(X, Y, U, V, zorder=1)
 
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.xlim(xlim)
-    plt.ylim(ylim)
+    ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
     # Make sure the aspect ratio is correct
-    plt.gca().set_aspect("equal", adjustable="box")
+    ax.set_aspect("equal", adjustable="box")
 
     # Adjust the layout
-    plt.tight_layout(pad=2.5)
+    fig.tight_layout(pad=2.5)
+
+    return fig, ax
