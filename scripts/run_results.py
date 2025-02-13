@@ -125,6 +125,57 @@ def run_param_configuration(
     print("\n------------------------\n")
 
 
+def build_dataframe(path_jsons: str = "json") -> pd.DataFrame:
+    """Build a dataframe with the results.
+
+    Parameters
+    ----------
+    path_jsons : str, optional
+        Path to the folder where the JSON files are stored, by default "json"
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with the results
+    """
+    # Read the results as dictionaries and store them in a list
+    ls_files = os.listdir(path_jsons)
+    ls_results = []
+    for file in ls_files:
+        with open(f"{path_jsons}/{file}") as f:
+            d: dict = json.load(f)
+            # Drop curves
+            d.pop("curve_cmaes", None)
+            d.pop("curve_fms", None)
+            ls_results.append(d)
+
+    # Build the dataframe
+    df = pd.DataFrame(ls_results)
+
+    # Extra columns:
+    # FMS gains w.r.t. CMA-ES
+    df["fms_gain"] = 100 * ((df["cost_cmaes"] - df["cost_fms"]) / df["cost_cmaes"])
+
+    # Group by "water_level", "resolution" and "random_seed"
+    # Get the lowest "cost_fms" for each group
+    df_best = (
+        df.sort_values("cost_fms")
+        .groupby(["vectorfield", "water_level", "resolution", "random_seed"])
+        .first()
+        .reset_index()
+    )
+    # Add that best cost to the original dataframe
+    df_best = df_best.rename(columns={"cost_fms": "cost_best"})
+    df = df.merge(
+        df_best[
+            ["vectorfield", "water_level", "resolution", "random_seed", "cost_best"]
+        ],
+        on=["vectorfield", "water_level", "resolution", "random_seed"],
+        how="left",
+    )
+    return df
+
+
 def main(
     max_workers: int = 16,
     path_config: str = "config.toml",
@@ -154,19 +205,8 @@ def main(
         for idx, params in enumerate(ls_params):
             executor.submit(run_param_configuration, params, path_jsons, idx)
 
-    # Read the results as dictionaries and store them in a list
-    ls_files = os.listdir(path_jsons)
-    ls_results = []
-    for file in ls_files:
-        with open(f"{path_jsons}/{file}") as f:
-            d: dict = json.load(f)
-            # Drop curves
-            d.pop("curve_cmaes", None)
-            d.pop("curve_fms", None)
-            ls_results.append(d)
-
-    # Save the results in a CSV file
-    df = pd.DataFrame(ls_results)
+    # Build the dataframe
+    df = build_dataframe(path_jsons, path_results)
     df.to_csv(path_results + "/results.csv", index=False, float_format="%.6f")
 
 
