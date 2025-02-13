@@ -59,6 +59,9 @@ def control_to_curve(
     """
     control = control.reshape(control.shape[0], -1, 2)
 
+    # Control points are in the range [-1, 1]. Scale them to the source and destination
+    control = (control + 1) / 2 * (dst - src) + src
+
     # Add the fixed endpoints
     first_point = jnp.broadcast_to(src, (control.shape[0], 1, 2))
     last_point = jnp.broadcast_to(dst, (control.shape[0], 1, 2))
@@ -327,7 +330,8 @@ def optimize(
     """
     if K < 3:
         raise ValueError("The number of control points must be at least 3")
-    x0 = jnp.linspace(src, dst, K - 2).flatten()  # initial solution
+    # Initial solution in the range [-1, 1]
+    x0 = jnp.linspace(jnp.array([-1, -1]), jnp.array([1, 1]), K - 2).flatten()
     # initial standard deviation to sample new solutions
     sigma0 = float(jnp.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
 
@@ -435,7 +439,8 @@ def optimize_with_increasing_penalization(
     """
     if K < 3:
         raise ValueError("The number of control points must be at least 3")
-    x0 = jnp.linspace(src, dst, K - 2).flatten()  # initial solution
+    # Initial solution in the range [-1, 1]
+    x0 = jnp.linspace(jnp.array([-1, -1]), jnp.array([1, 1]), K - 2).flatten()
     # initial standard deviation to sample new solutions
     sigma0 = float(jnp.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
 
