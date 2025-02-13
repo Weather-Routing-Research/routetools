@@ -147,6 +147,8 @@ def build_dataframe(path_jsons: str = "json") -> pd.DataFrame:
             # Drop curves
             d.pop("curve_cmaes", None)
             d.pop("curve_fms", None)
+            # Add the json file number
+            d["json"] = int(file.split(".")[0])
             ls_results.append(d)
 
     # Build the dataframe
