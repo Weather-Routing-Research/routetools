@@ -1,9 +1,9 @@
+import json
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 import jax.numpy as jnp
-import matplotlib.pyplot as plt
 import pandas as pd
 import typer
 
@@ -11,11 +11,10 @@ from routetools.cmaes import optimize
 from routetools.config import list_config_combinations
 from routetools.fms import optimize_fms
 from routetools.land import Land
-from routetools.plot import plot_curve
 
 
 def run_param_configuration(
-    params: dict, path_imgs: str = "img", fignum: int = 0
+    params: dict, path_jsons: str = "json", idx: int = 0
 ) -> dict:
     """Run the optimization algorithm with the given parameters.
 
@@ -23,16 +22,17 @@ def run_param_configuration(
     ----------
     params : dict
         Dictionary with the parameters
-    path_imgs : str, optional
-        Path to the folder where the images will be saved, by default "img"
-    fignum : int, optional
-        Figure number, by default 0
-
-    Returns
-    -------
-    dict
-        Dictionary with the results
+    path_jsons : str, optional
+        Path to the folder where the JSON files will be saved, by default "json"
+    idx : int, optional
+        JSON number, by default 0
     """
+    path_json = f"{path_jsons}/{idx:04d}.json"
+    # If the file already exists, skip
+    if os.path.exists(path_json):
+        return
+
+    print(f"Running configuration {idx}...")
     src = params["src"]
     dst = params["dst"]
     xlim = params.pop("xlim")
@@ -50,48 +50,38 @@ def run_param_configuration(
     # Is source or destination on land?
     if land(src) or land(dst):
         print("Source or destination is on land. Skipping...")
-        print("\n------------------------\n")
-        return {**params}
+        results = params
+    else:
+        # Vectorfield
+        vectorfield = params["vectorfield_fun"]
 
-    # Vectorfield
-    vfname = params["vectorfield"]
-    vectorfield = params["vectorfield_fun"]
+        # CMA-ES optimization algorithm
+        start = time.time()
 
-    # Initialize list
-    ls_curves = []
-    ls_names = []
-    ls_costs = []
+        curve, cost = optimize(
+            vectorfield,
+            src,
+            dst,
+            land=land,
+            penalty=params.get("penalty", 10),
+            travel_stw=params.get("travel_stw"),
+            travel_time=params.get("travel_time"),
+            K=params.get("K", 6),
+            L=params.get("L", 64),
+            num_pieces=params.get("num_pieces", 1),
+            popsize=params.get("popsize", 2000),
+            sigma0=params.get("sigma0"),
+            tolfun=params.get("tolfun", 0.0001),
+        )
+        if land(curve).any():
+            print("The curve is on land")
+            cost = jnp.inf
 
-    # CMA-ES optimization algorithm
-    start = time.time()
+        comp_time = time.time() - start
 
-    curve, cost = optimize(
-        vectorfield,
-        src,
-        dst,
-        land=land,
-        penalty=params.get("penalty", 10),
-        travel_stw=params.get("travel_stw"),
-        travel_time=params.get("travel_time"),
-        K=params.get("K", 6),
-        L=params.get("L", 64),
-        num_pieces=params.get("num_pieces", 1),
-        popsize=params.get("popsize", 2000),
-        sigma0=params.get("sigma0"),
-        tolfun=params.get("tolfun", 0.0001),
-    )
-    if land(curve).any():
-        print("The curve is on land")
-        cost = jnp.inf
-    ls_curves.append(curve)
-    ls_names.append("CMA-ES")
-    ls_costs.append(cost)
+        # FMS variational algorithm (refinement)
+        start = time.time()
 
-    comp_time = time.time() - start
-
-    # FMS variational algorithm (refinement)
-    start = time.time()
-    try:
         curve_fms, cost_fms = optimize_fms(
             vectorfield,
             curve=curve,
@@ -108,43 +98,31 @@ def run_param_configuration(
         if land(curve_fms).any():
             print("The curve is on land")
             cost_fms = jnp.inf
-        ls_curves.append(curve_fms)
-        ls_names.append("FMS")
-        ls_costs.append(cost_fms)
-    except Exception as e:
-        print(e)
-        curve_fms = None
-        cost_fms = jnp.inf
-    comp_time_fms = time.time() - start
 
-    # Store the results
-    results = {
-        **params,
-        "cost": cost,
-        "cost_fms": cost_fms,
-        "comp_time": comp_time,
-        "comp_time_fms": comp_time_fms,
-        "image": fignum if curve is not None else None,
-    }
+        comp_time_fms = time.time() - start
 
-    # Plot them
-    if len(ls_curves) > 0:
-        fig, ax = plot_curve(
-            vectorfield,
-            ls_curves,
-            ls_name=ls_names,
-            ls_cost=ls_costs,
-            land=land,
-            xlim=xlim,
-            ylim=ylim,
-        )
-        ax.set_title(f"{vfname}")
-        fig.savefig(f"{path_imgs}/fig{fignum:04d}.png")
-        plt.close(fig)
+        # Store the results
+        results = {
+            **params,
+            "cost_cmaes": cost,
+            "comp_time_cmaes": comp_time,
+            "cost_fms": cost_fms,
+            "comp_time_fms": comp_time_fms,
+            "curve_cmaes": curve,
+            "curve_fms": curve_fms,
+        }
+
+    # Pop the vectorfield function
+    results.pop("vectorfield_fun", None)
+    # Any array contained in the dictionary is turned into a list
+    for key, value in results.items():
+        if isinstance(value, jnp.ndarray):
+            results[key] = value.tolist()
+    # Save the results in a JSON file
+    with open(path_json, "w") as f:
+        json.dump(results, f, indent=4)
 
     print("\n------------------------\n")
-
-    return results
 
 
 def main(
@@ -168,25 +146,27 @@ def main(
 
     # Ensure the output folder exists
     os.makedirs(path_results, exist_ok=True)
-    path_imgs = path_results + "/img"
-    os.makedirs(path_imgs, exist_ok=True)
-
-    # Initialize list of results
-    results: list[dict] = []
+    path_jsons = path_results + "/json"
+    os.makedirs(path_jsons, exist_ok=True)
 
     # Use ThreadPoolExecutor to parallelize the execution
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(run_param_configuration, params, path_imgs, idx)
-            for idx, params in enumerate(ls_params)
-        ]
-        for future in as_completed(futures):
-            results.append(future.result())
+        for idx, params in enumerate(ls_params):
+            executor.submit(run_param_configuration, params, path_jsons, idx)
 
-    # Save the results to a csv file using pandas
-    df = pd.DataFrame(results)
-    # Remove some columns
-    df = df.drop(columns=["vectorfield_fun"])
+    # Read the results as dictionaries and store them in a list
+    ls_files = os.listdir(path_jsons)
+    ls_results = []
+    for file in ls_files:
+        with open(f"{path_jsons}/{file}") as f:
+            d: dict = eval(f.read())
+            # Drop curves
+            d.pop("curve_cmaes", None)
+            d.pop("curve_fms", None)
+            ls_results.append(d)
+
+    # Save the results in a CSV file
+    df = pd.DataFrame(ls_results)
     df.to_csv(path_results + "/results.csv", index=False, float_format="%.6f")
 
 
