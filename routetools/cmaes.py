@@ -15,6 +15,88 @@ from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices
 
 
+class Scaler:
+    """Scale the control points so that CMA-ES works on the range [-1, 1].
+
+    This range is more suitable for optimization.
+    """
+
+    def __init__(self, src: jnp.ndarray, dst: jnp.ndarray):
+        """
+        Initialize the Scaler.
+
+        Parameters
+        ----------
+        src : jnp.ndarray
+            Source point (2D)
+        dst : jnp.ndarray
+            Destination point (2D)
+
+        Returns
+        -------
+        list[jnp.ndarray]
+            The bounding box of the control points
+        """
+        # Get the bounding box of the control points
+        bbox = jnp.vstack([src, dst])
+        bbmin, bbmax = jnp.sort(bbox, axis=0)
+        # One size of the bounding box may be zero
+        # We add a small margin to avoid numerical issues
+        width = jnp.maximum(bbmax - bbmin, 1e-6)
+        self.min = bbmin - 0.1 * width
+        self.max = bbmax + 0.1 * width
+        self.src = src
+        self.dst = dst
+
+    @partial(jit, static_argnums=(0))
+    def __call__(self, control: jnp.ndarray) -> jnp.ndarray:
+        """
+        Scale the control points to the bounding box.
+
+        Parameters
+        ----------
+        control : jnp.ndarray
+            A B x 2K matrix. The first K columns are the x positions of the Bézier
+            control points, and the last K are the y positions
+
+        Returns
+        -------
+        jnp.ndarray
+            The scaled control points
+        """
+        control = control.reshape(control.shape[0], -1, 2)
+        control = (control + 1) / 2 * (self.max - self.min) + self.min
+
+        # Add the fixed endpoints
+        first_point = jnp.broadcast_to(self.src, (control.shape[0], 1, 2))
+        last_point = jnp.broadcast_to(self.dst, (control.shape[0], 1, 2))
+        control = jnp.hstack([first_point, control, last_point])
+        return control
+
+    def initial_solution(self, K: int) -> jnp.ndarray:
+        """Get an initial solution for the optimization: straight line.
+
+        Parameters
+        ----------
+        K : int
+            Number of free Bézier control points
+
+        Returns
+        -------
+        jnp.ndarray
+            The initial solution
+        """
+        if K < 3:
+            raise ValueError("The number of control points must be at least 3")
+        x0: jnp.ndarray
+        # Initial solution as a straight line
+        x0 = jnp.linspace(self.src, self.dst, K - 2)
+        # Scale it to the range [-1, 1]
+        x0 = 2 * (x0 - self.min) / (self.max - self.min) - 1
+        x0 = x0.flatten()
+        return x0
+
+
 @jit
 def batch_bezier(t: jnp.ndarray, control: jnp.ndarray) -> jnp.ndarray:
     """
@@ -32,13 +114,9 @@ def batch_bezier(t: jnp.ndarray, control: jnp.ndarray) -> jnp.ndarray:
     return control[:, 0, ...]
 
 
-@partial(jit, static_argnums=(3, 4))
+@partial(jit, static_argnums=(1, 2))
 def control_to_curve(
-    control: jnp.ndarray,
-    src: jnp.ndarray,
-    dst: jnp.ndarray,
-    L: int = 64,
-    num_pieces: int = 1,
+    control: jnp.ndarray, L: int = 64, num_pieces: int = 1
 ) -> jnp.ndarray:
     """
     Convert a batch of free parameters into a batch of Bézier curves.
@@ -48,29 +126,12 @@ def control_to_curve(
     control : jnp.ndarray
         A B x 2K matrix. The first K columns are the x positions of the Bézier
         control points, and the last K are the y positions
-    src : jnp.ndarray
-        Source point (2D)
-    dst : jnp.ndarray
-        Destination point (2D)
     L : int, optional
         Number of points evaluated in each Bézier curve, by default 64
     num_pieces : int, optional
         Number of Bézier curves, by default 1
     """
-    control = control.reshape(control.shape[0], -1, 2)
-
-    # Get the bounding box of the control points
-    bbox = jnp.vstack([src, dst])
-    bbmin, bbmax = jnp.sort(bbox, axis=0)
-
-    # Control points are in the range [-1, 1]. Scale them to the source and destination
-    control = (control + 1) / 2 * (bbmax - bbmin) + bbmin
-
-    # Add the fixed endpoints
-    first_point = jnp.broadcast_to(src, (control.shape[0], 1, 2))
-    last_point = jnp.broadcast_to(dst, (control.shape[0], 1, 2))
-    control = jnp.hstack([first_point, control, last_point])
-
+    last_point = control[:, -1, :]
     result: jnp.ndarray
     if num_pieces > 1:
         # Ensure that the number of control points is divisible by the number of pieces
@@ -115,7 +176,7 @@ def control_to_curve(
         # Concatenate the pieces into a single curve
         result = jnp.hstack(ls_pieces)
         # Add the destination (last) point (was omitted in the loop)
-        result = jnp.hstack([result, last_point])
+        result = jnp.hstack([result, last_point[:, None, :]])
     else:
         result = batch_bezier(t=jnp.linspace(0, 1, L), control=control)
     return result
@@ -221,9 +282,8 @@ def _cma_evolution_strategy(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
     ],
-    src: jnp.ndarray,
-    dst: jnp.ndarray,
     x0: jnp.ndarray,
+    scaler: Scaler,
     land: Land | None = None,
     penalty: float = 10,
     travel_stw: float | None = None,
@@ -238,15 +298,19 @@ def _cma_evolution_strategy(
     **kwargs: dict[str, Any],
 ) -> cma.CMAEvolutionStrategy:
     curve: jnp.ndarray
+    # Initialize the optimizer
     es = cma.CMAEvolutionStrategy(
         x0, sigma0, inopts={"popsize": popsize, "tolfun": tolfun, "seed": seed} | kwargs
     )
+    # Check if the land penalization is consistent
     if land is not None:
         assert penalty is not None, "penalty must be a number"
 
+    # Optimization loop
     while not es.stop():
         X = es.ask()  # sample len(X) candidate solutions
-        curve = control_to_curve(jnp.array(X), src, dst, L=L, num_pieces=num_pieces)
+        control = scaler(jnp.array(X))
+        curve = control_to_curve(control, L=L, num_pieces=num_pieces)
 
         cost: jnp.ndarray = cost_function(
             vectorfield,
@@ -332,24 +396,17 @@ def optimize(
     tuple[jnp.ndarray, float]
         The optimized curve (shape L x 2), and the fuel cost
     """
-    if K < 3:
-        raise ValueError("The number of control points must be at least 3")
-    # Initial solution as a straight line
-    x0 = jnp.linspace(src, dst, K - 2)
-    # Scale it to the range [-1, 1]
-    bbox = jnp.vstack([src, dst])
-    bbmin, bbmax = jnp.sort(bbox, axis=0)
-    x0 = 2 * (x0 - bbmin) / (bbmax - bbmin) - 1
-    x0 = x0.flatten()
+    # Initialize the scaler - this will scale the control points to the bounding box
+    scaler = Scaler(src, dst)
+    x0 = scaler.initial_solution(K)
     # initial standard deviation to sample new solutions
     sigma0 = float(jnp.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
 
     start = time.time()
     es = _cma_evolution_strategy(
         vectorfield=vectorfield,
-        src=src,
-        dst=dst,
         x0=x0,
+        scaler=scaler,
         land=land,
         penalty=penalty,
         travel_stw=travel_stw,
@@ -366,10 +423,8 @@ def optimize(
         print("Optimization time:", time.time() - start)
         print("Fuel cost:", es.best.f)
 
-    Xbest = es.best.x[None, :]
-    curve_best: jnp.ndarray = control_to_curve(
-        Xbest, src, dst, L=L, num_pieces=num_pieces
-    )[0, ...]
+    Xbest = scaler(es.best.x[None, :])
+    curve_best = control_to_curve(Xbest, L=L, num_pieces=num_pieces)[0, ...]
     return curve_best, es.best.f
 
 
@@ -446,15 +501,9 @@ def optimize_with_increasing_penalization(
     tuple[list[jnp.ndarray], list[float]]
         The list of optimized curves (each with shape L x 2), and the list of fuel costs
     """
-    if K < 3:
-        raise ValueError("The number of control points must be at least 3")
-    # Initial solution as a straight line
-    x0 = jnp.linspace(src, dst, K - 2)
-    # Scale it to the range [-1, 1]
-    bbox = jnp.vstack([src, dst])
-    bbmin, bbmax = jnp.sort(bbox, axis=0)
-    x0 = 2 * (x0 - bbmin) / (bbmax - bbmin) - 1
-    x0 = x0.flatten()
+    # Initialize the scaler - this will scale the control points to the bounding box
+    scaler = Scaler(src, dst)
+    x0 = scaler.initial_solution(K)
     # initial standard deviation to sample new solutions
     sigma0 = float(jnp.linalg.norm(dst - src)) if sigma0 is None else float(sigma0)
 
@@ -469,8 +518,7 @@ def optimize_with_increasing_penalization(
     while is_land and (niter < maxiter):
         es = _cma_evolution_strategy(
             vectorfield=vectorfield,
-            src=src,
-            dst=dst,
+            scaler=scaler,
             x0=x0,
             land=land,
             penalty=penalty,
@@ -488,10 +536,8 @@ def optimize_with_increasing_penalization(
             print("Optimization time:", time.time() - start)
             print("Fuel cost:", es.best.f)
 
-        Xbest = es.best.x[None, :]
-        curve: jnp.ndarray = control_to_curve(
-            Xbest, src, dst, L=L, num_pieces=num_pieces
-        )[0, ...]
+        Xbest = scaler(es.best.x[None, :])
+        curve: jnp.ndarray = control_to_curve(Xbest, L=L, num_pieces=num_pieces)[0, ...]
         # sigma0 = es.sigma0
         if land(curve).any():
             penalty += penalty_increment
@@ -534,8 +580,8 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
         K=13,
         L=64,
         num_pieces=3,
-        popsize=1000,
-        sigma0=5,
+        popsize=500,
+        sigma0=3,
         tolfun=1e-6,
     )
 
@@ -545,7 +591,8 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     x: jnp.ndarray = jnp.arange(xmin, xmax, 0.5)
     y: jnp.ndarray = jnp.arange(ymin, ymax, 0.5)
     X, Y = jnp.meshgrid(x, y)
-    U, V = vectorfield_fourvortices(X, Y, None)
+    t = jnp.zeros_like(X)
+    U, V = vectorfield_fourvortices(X, Y, t)
 
     plt.figure()
     plt.quiver(X, Y, U, V)
