@@ -152,6 +152,11 @@ def build_dataframe(path_jsons: str = "json") -> pd.DataFrame:
     # Build the dataframe
     df = pd.DataFrame(ls_results)
 
+    # We need to fill NaNs in resolution and random_seed with -1
+    # so we can group by them
+    df["resolution"] = df["resolution"].fillna(-1)
+    df["random_seed"] = df["random_seed"].fillna(-1)
+
     # Extra columns:
     # FMS gains w.r.t. CMA-ES
     df["fms_gain"] = 100 * ((df["cost_cmaes"] - df["cost_fms"]) / df["cost_cmaes"])
