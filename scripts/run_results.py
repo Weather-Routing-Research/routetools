@@ -159,7 +159,7 @@ def main(
     ls_results = []
     for file in ls_files:
         with open(f"{path_jsons}/{file}") as f:
-            d: dict = eval(f.read())
+            d: dict = json.load(f)
             # Drop curves
             d.pop("curve_cmaes", None)
             d.pop("curve_fms", None)
