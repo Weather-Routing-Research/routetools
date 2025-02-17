@@ -157,6 +157,17 @@ def build_dataframe(path_jsons: str = "json") -> pd.DataFrame:
     # Build the dataframe
     df = pd.DataFrame(ls_results)
 
+    # Land generation check: under the same conditions, the land should be the same
+    # When the land makes source or destination not reachable, the cost is NaN
+    # Thus, when a cost is NaN, it should be NaN for all the rows with the same
+    # land configuration
+    df["is_nan"] = df["cost_cmaes"].isna()
+    col_land = ["vectorfield", "water_level", "resolution", "random_seed"]
+    df_group = df.groupby(col_land)["is_nan"].mean()
+    mask_wrong = ~((df_group == 0) | (df_group == 1))
+    if mask_wrong.any():
+        raise ValueError("Land generation is not consistent")
+
     # We need to fill NaNs in resolution and random_seed with -1
     # so we can group by them
     df["resolution"] = df["resolution"].fillna(-1)
