@@ -56,13 +56,12 @@ class Land:
             )
 
         # Random seed
-        if random_seed is not None:
-            np.random.seed(random_seed)
+        rng = np.random.default_rng(random_seed) if random_seed is not None else None
 
         # Generate land
         lenx = ceil(xlim[1] - xlim[0]) * resolution[0]
         leny = ceil(ylim[1] - ylim[0]) * resolution[1]
-        land = pn2d((lenx, leny), res=resolution)
+        land = pn2d((lenx, leny), res=resolution, rng=rng)
         # Normalize land between 0 and 1
         land = (land - jnp.min(land)) / (jnp.max(land) - jnp.min(land))
         # No land should be absolutely 0
