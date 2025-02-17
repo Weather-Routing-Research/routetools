@@ -162,6 +162,12 @@ def land_avoidance(folder: str = "output"):
             label=f"FMS (dist = {d['cost_fms']:.2f})",
         )
 
+        # Plot the source and destination
+        src = np.array(d["src"])
+        dst = np.array(d["dst"])
+        ax.scatter(*src, color="orange", zorder=2)
+        ax.scatter(*dst, color="orange", zorder=2)
+
         # Set the title and save the plot
         ax.set_title(
             f"Water level: {water_level} | Resolution: {resolution} | "
