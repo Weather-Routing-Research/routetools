@@ -8,7 +8,7 @@ from matplotlib.axes import Axes
 from routetools.land import Land
 
 
-def land_configurations(seed: int = 1, fout: str = "output/land_configurations.png"):
+def land_configurations(seed: int = 4, fout: str = "output/land_configurations.png"):
     """Generate a grid of land configurations.
 
     Parameters
@@ -31,8 +31,8 @@ def land_configurations(seed: int = 1, fout: str = "output/land_configurations.p
             ax: Axes = axes[i, j]
             # Create the land object
             land = Land(
-                xlim=(0, 6),
-                ylim=(0, 6),
+                xlim=(-1, 6),
+                ylim=(-1, 6),
                 water_level=water_level,
                 resolution=resolution,
                 random_seed=seed,
