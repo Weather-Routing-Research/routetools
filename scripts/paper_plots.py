@@ -107,8 +107,15 @@ def land_avoidance(folder: str = "output"):
 
         # Load the JSON file for the identified example
         json_id = int(row["json"])
-        with open(f"{folder}/json/{json_id}.json") as f:
+        with open(f"{folder}/json/{json_id:04d}.json") as f:
             d: dict = json.load(f)
+
+        # Print what was the CMA-ES configuration
+        print(
+            f"Land avoidance {idx}:    "
+            f"Pop size: {d['popsize']} | Sigma: {d['sigma0']}"
+            f"| L: {d['L']} | K: {d['K']}"
+        )
 
         # Set up the plot
         fig, ax = plt.subplots(figsize=(4, 4))
