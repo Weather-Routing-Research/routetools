@@ -164,7 +164,8 @@ def land_avoidance(folder: str = "output"):
 
         # Set the title and save the plot
         ax.set_title(
-            f"Water level: {water_level} | Resolution: {resolution} | Seed: {random_seed}"
+            f"Water level: {water_level} | Resolution: {resolution} | "
+            f"Seed: {random_seed}"
         )
         ax.legend()
         fig.tight_layout()

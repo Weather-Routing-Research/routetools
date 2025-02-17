@@ -27,6 +27,9 @@ def run_param_configuration(
     idx : int, optional
         JSON number, by default 0
     """
+    # Make a copy to not replace original
+    params = params.copy()
+    # Path to the JSON file
     path_json = f"{path_jsons}/{idx:04d}.json"
     # If the file already exists, skip
     if os.path.exists(path_json):
@@ -41,10 +44,10 @@ def run_param_configuration(
     land = Land(
         xlim,
         ylim,
-        water_level=params.get("water_level", 0.7),
+        water_level=params.get("water_level"),
         resolution=params.get("resolution"),
         random_seed=params.get("random_seed"),
-        outbounds_is_land=params.get("outbounds_is_land", False),
+        outbounds_is_land=params.get("outbounds_is_land"),
     )
 
     # Is source or destination on land?
