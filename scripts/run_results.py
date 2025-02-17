@@ -167,6 +167,9 @@ def build_dataframe(path_jsons: str = "json") -> pd.DataFrame:
     mask_wrong = ~((df_group == 0) | (df_group == 1))
     if mask_wrong.any():
         raise ValueError("Land generation is not consistent")
+    else:
+        # Remove the column
+        df = df.drop(columns="is_nan")
 
     # We need to fill NaNs in resolution and random_seed with -1
     # so we can group by them
