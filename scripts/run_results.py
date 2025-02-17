@@ -160,6 +160,8 @@ def build_dataframe(path_jsons: str = "json") -> pd.DataFrame:
     df["random_seed"] = df["random_seed"].fillna(-1)
 
     # Extra columns:
+    df["comp_time"] = df["comp_time_cmaes"] + df["comp_time_fms"]
+
     # FMS gains w.r.t. CMA-ES
     df["fms_gain"] = 100 * ((df["cost_cmaes"] - df["cost_fms"]) / df["cost_cmaes"])
 
@@ -213,7 +215,7 @@ def main(
             executor.submit(run_param_configuration, params, path_jsons, idx)
 
     # Build the dataframe
-    df = build_dataframe(path_jsons, path_results)
+    df = build_dataframe(path_jsons)
     df.to_csv(path_results + "/results.csv", index=False, float_format="%.6f")
 
 
