@@ -32,7 +32,7 @@ def run_param_configuration(
     # Make a copy to not replace original
     params = params.copy()
     # Path to the JSON file
-    path_json = f"{path_jsons}/{idx:04d}.json"
+    path_json = f"{path_jsons}/{idx:06d}.json"
     # If the file already exists, skip
     if os.path.exists(path_json):
         return
