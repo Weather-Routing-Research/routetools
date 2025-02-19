@@ -14,7 +14,7 @@ from routetools.land import Land
 
 
 def run_param_configuration(
-    params: dict, path_jsons: str = "json", idx: int = 0
+    params: dict, path_jsons: str = "json", idx: int = 0, seed_max: int = 0
 ) -> dict:
     """Run the optimization algorithm with the given parameters.
 
@@ -26,6 +26,8 @@ def run_param_configuration(
         Path to the folder where the JSON files will be saved, by default "json"
     idx : int, optional
         JSON number, by default 0
+    seed_max : int, optional
+        Maximum seed value, by default 0
     """
     # Make a copy to not replace original
     params = params.copy()
@@ -52,8 +54,12 @@ def run_param_configuration(
 
     # Is source or destination on land?
     if land(src) or land(dst):
-        print("Source or destination is on land. Skipping...")
-        results = params
+        print("Source or destination is on land. We will try another seed.")
+        # If this happens, we increase the seed and try again
+        params["random_seed"] = int(params.get("random_seed") + seed_max)
+        run_param_configuration(
+            params, path_jsons=path_jsons, idx=idx, seed_max=seed_max
+        )
     else:
         # Vectorfield
         vectorfield = params["vectorfield_fun"]
@@ -221,6 +227,9 @@ def main(
     # Generate the list of parameters
     ls_params = list_config_combinations(path_config)
 
+    # Get the highest seed
+    seed_max = max([params.get("random_seed", 0) for params in ls_params] + [1])
+
     # Ensure the output folder exists
     os.makedirs(path_results, exist_ok=True)
     path_jsons = path_results + "/json"
@@ -229,7 +238,7 @@ def main(
     # Use ThreadPoolExecutor to parallelize the execution
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for idx, params in enumerate(ls_params):
-            executor.submit(run_param_configuration, params, path_jsons, idx)
+            executor.submit(run_param_configuration, params, path_jsons, idx, seed_max)
 
     # Build the dataframe
     df = build_dataframe(path_jsons)
