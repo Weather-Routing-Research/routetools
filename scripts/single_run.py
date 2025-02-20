@@ -1,4 +1,5 @@
 import time
+import tomllib
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
@@ -12,15 +13,9 @@ from routetools.plot import plot_curve
 
 def run_single_simulation(
     vectorfield: str = "fourvortices",
-    src: tuple[float, float] = [0, 0],
-    dst: tuple[float, float] = [6, 2],
-    travel_stw: float = 1,
-    travel_time: float = None,
-    land_xlim: tuple[float, float] = None,
-    land_ylim: tuple[float, float] = None,
-    land_waterlevel: float = 0.6,
+    land_waterlevel: float = 0.8,
     land_resolution: int = 5,
-    land_seed: int = 2,
+    land_seed: int = 0,
     land_penalty: float = 10,
     outbounds_is_land: bool = False,
     cmaes_K: int = 6,
@@ -34,6 +29,7 @@ def run_single_simulation(
     fms_damping: float = 0.9,
     fms_maxfevals: int = 5000,
     path_img: str = "./output",
+    path_config: str = "config.toml",
 ):
     """
     Run a single simulation to find an optimal path from source to destination.
@@ -42,14 +38,6 @@ def run_single_simulation(
     ----------
     vectorfield : str, optional
         The name of the vector field function to use, by default "zero".
-    src : tuple[float, float], optional
-        The source coordinates, by default (0, 0).
-    dst : tuple[float, float], optional
-        The destination coordinates, by default (5, 5).
-    travel_stw : float, optional
-        The speed through water, by default 1.
-    travel_time : float, optional
-        The travel time for JIT. Overwrites travel_stw, by default None.
     land_xlim : tuple[float, float], optional
         The x-axis limits for the land, by default None.
     land_ylim : tuple[float, float], optional
@@ -85,19 +73,18 @@ def run_single_simulation(
     path_img : str, optional
         The path to save output images, by default "./output".
     """
-    src = jnp.array(src)
-    dst = jnp.array(dst)
+    # Load the config file as a dictionary
+    with open(path_config, "rb") as f:
+        config = tomllib.load(f)
 
-    if land_xlim is None:
-        land_xlim = (
-            jnp.min(jnp.array([src[0], dst[0]]) - 1),
-            jnp.max(jnp.array([src[0], dst[0]]) + 1),
-        )
-    if land_ylim is None:
-        land_ylim = (
-            jnp.min(jnp.array([src[1], dst[1]]) - 1),
-            jnp.max(jnp.array([src[1], dst[1]]) + 1),
-        )
+    # Extract the vectorfield parameters
+    vfparams = config["vectorfield"][vectorfield]
+    src = jnp.array(vfparams["src"])
+    dst = jnp.array(vfparams["dst"])
+    travel_stw = vfparams.get("travel_stw", None)
+    travel_time = vfparams.get("travel_time", None)
+    land_xlim = vfparams.get("xlim", None)
+    land_ylim = vfparams.get("ylim", None)
 
     # Load the vectorfield function
     vectorfield_module = __import__(
