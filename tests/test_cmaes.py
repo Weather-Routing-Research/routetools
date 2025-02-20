@@ -42,7 +42,6 @@ def test_cmaes_constant_speed(
         L=L,
         popsize=10,
         sigma0=1,
-        tolfun=0.1,
         seed=1,
     )
     assert isinstance(curve, jnp.ndarray)
@@ -77,8 +76,7 @@ def test_cmaes_constant_time(
         travel_time=30,
         L=L,
         popsize=1000,
-        sigma0=3,
-        tolfun=0.01,
+        sigma0=2,
         seed=1,
     )
     assert isinstance(curve, jnp.ndarray)
@@ -121,7 +119,6 @@ def test_cmaes_constant_speed_with_land(
         travel_stw=1,
         popsize=10,
         sigma0=1,
-        tolfun=0.1,
         seed=1,
     )
     assert isinstance(curve, jnp.ndarray)

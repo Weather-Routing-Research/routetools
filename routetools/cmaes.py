@@ -129,6 +129,7 @@ def _cma_evolution_strategy(
     popsize: int = 200,
     sigma0: float = 1,
     tolfun: float = 1e-4,
+    maxfevals: int = 25000,
     seed: float = jnp.nan,
     verbose: bool = True,
     **kwargs: dict[str, Any],
@@ -136,7 +137,15 @@ def _cma_evolution_strategy(
     curve: jnp.ndarray
     # Initialize the optimizer
     es = cma.CMAEvolutionStrategy(
-        x0, sigma0, inopts={"popsize": popsize, "tolfun": tolfun, "seed": seed} | kwargs
+        x0,
+        sigma0,
+        inopts={
+            "popsize": popsize,
+            "tolfun": tolfun,
+            "maxfevals": maxfevals,
+            "seed": seed,
+        }
+        | kwargs,
     )
     # Check if the land penalization is consistent
     if land is not None:
@@ -180,6 +189,7 @@ def optimize(
     popsize: int = 200,
     sigma0: float = 1,
     tolfun: float = 1e-4,
+    maxfevals: int = 25000,
     seed: float = jnp.nan,
     verbose: bool = True,
 ) -> tuple[jnp.ndarray, float]:
@@ -221,6 +231,8 @@ def optimize(
         Initial standard deviation to sample new solutions. By default 1
     tolfun : float, optional
         Tolerance for the optimizer. By default 1e-4
+    maxfevals : int, optional
+        Maximum number of function evaluations. By default 25000
     seed : int, optional
         Random seed for reproducibility. By default jnp.nan
     verbose : bool, optional
@@ -252,6 +264,7 @@ def optimize(
         popsize=popsize,
         sigma0=sigma0,
         tolfun=tolfun,
+        maxfevals=maxfevals,
         seed=seed,
         verbose=verbose,
     )
@@ -282,6 +295,7 @@ def optimize_with_increasing_penalization(
     popsize: int = 200,
     sigma0: float = 1,
     tolfun: float = 1e-4,
+    maxfevals: int = 25000,
     seed: float = jnp.nan,
     verbose: bool = True,
 ) -> tuple[list[jnp.ndarray], list[float]]:
@@ -327,6 +341,8 @@ def optimize_with_increasing_penalization(
         Initial standard deviation to sample new solutions. By default 1
     tolfun : float, optional
         Tolerance for the optimizer. By default 1e-4
+    maxfevals : int, optional
+        Maximum number of function evaluations. By default 25000
     seed : int, optional
         Random seed for reproducibility. By default jnp.nan
     verbose : bool, optional
@@ -366,6 +382,7 @@ def optimize_with_increasing_penalization(
             popsize=popsize,
             sigma0=sigma0,
             tolfun=tolfun,
+            maxfevals=maxfevals,
             seed=seed,
             verbose=verbose,
         )

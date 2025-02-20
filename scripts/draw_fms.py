@@ -9,14 +9,14 @@ from routetools.fms import optimize_fms
 from routetools.vectorfield import vectorfield_zero
 
 
-def main(w=2, maxiter=50, damping=0.1, frames=200):
+def main(w=2, maxfevals=50, damping=0.1, frames=200):
     """Draw the FMS optimization.
 
     Parameters
     ----------
     w : int, optional
         The noise level, by default 2
-    maxiter : int, optional
+    maxfevals : int, optional
         The maximum number of iterations, by default 50
     damping : float, optional
         The damping factor, by default 0.1
@@ -85,12 +85,12 @@ def main(w=2, maxiter=50, damping=0.1, frames=200):
             curve=routes,
             damping=damping,
             travel_stw=1,
-            maxiter=maxiter,
+            maxfevals=maxfevals,
             verbose=False,
         )
         for idx in range(4):
             ls_lines[idx].set_data(routes[idx, :, 0], routes[idx, :, 1])
-            ls_txt[idx][0].set_text(f"Iteration: {frame*maxiter}")
+            ls_txt[idx][0].set_text(f"Iteration: {frame*maxfevals}")
             ls_txt[idx][1].set_text(f"Cost: {costs[idx]:.2f}")
         return ls_lines + [txt for txt, _ in ls_txt] + [txt for _, txt in ls_txt]
 

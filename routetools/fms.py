@@ -121,7 +121,7 @@ def optimize_fms(
     travel_time: float | None = None,
     tolfun: float = 1e-4,
     damping: float = 0.9,
-    maxiter: int = 5000,
+    maxfevals: int = 5000,
     seed: int = 0,
     verbose: bool = True,
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
@@ -157,7 +157,7 @@ def optimize_fms(
         Tolerance for the cost reduction between epochs, by default 1e-4
     damping : float, optional
         Damping factor, by default 0.9
-    maxiter : int, optional
+    maxfevals : int, optional
         Maximum number of iterations, by default 5000
     verbose : bool, optional
         Print optimization progress, by default True
@@ -247,7 +247,7 @@ def optimize_fms(
 
     # Loop iterations
     idx = 0
-    while (idx < maxiter) & (delta >= tolfun).any():
+    while (idx < maxfevals) & (delta >= tolfun).any():
         cost_old = cost_now
         curve_old = curve.copy()
         curve = solve_vectorized(curve)

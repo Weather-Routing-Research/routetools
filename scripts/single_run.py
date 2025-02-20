@@ -11,27 +11,28 @@ from routetools.plot import plot_curve
 
 
 def run_single_simulation(
-    vectorfield: str = "zero",
-    src: tuple[float, float] = (0, 0),
-    dst: tuple[float, float] = (5, 5),
+    vectorfield: str = "fourvortices",
+    src: tuple[float, float] = [0, 0],
+    dst: tuple[float, float] = [6, 2],
     travel_stw: float = 1,
     travel_time: float = None,
     land_xlim: tuple[float, float] = None,
     land_ylim: tuple[float, float] = None,
-    land_waterlevel: float = 0.7,
-    land_resolution: int = 3,
-    land_seed: int = 0,
+    land_waterlevel: float = 0.6,
+    land_resolution: int = 5,
+    land_seed: int = 2,
     land_penalty: float = 10,
     outbounds_is_land: bool = False,
     cmaes_K: int = 6,
-    cmaes_L: int = 64,
+    cmaes_L: int = 128,
     cmaes_numpieces: int = 1,
     cmaes_popsize: int = 2000,
-    cmaes_sigma: float = None,
-    cmaes_tolfun: float = 0.0001,
+    cmaes_sigma: float = 1,
+    cmaes_tolfun: float = 0.1,
+    cmaes_maxfevals: int = 20000,
     fms_tolfun: float = 1e-6,
     fms_damping: float = 0.9,
-    fms_maxiter: int = 50000,
+    fms_maxfevals: int = 5000,
     path_img: str = "./output",
 ):
     """
@@ -72,14 +73,14 @@ def run_single_simulation(
     cmaes_popsize : int, optional
         The population size for CMA-ES, by default 2000.
     cmaes_sigma : float, optional
-        The initial standard deviation for CMA-ES, by default None.
+        The initial standard deviation for CMA-ES, by default 1.
     cmaes_tolfun : float, optional
         The tolerance for the function value in CMA-ES, by default 0.0001.
     fms_tolfun : float, optional
         The tolerance for the function value in FMS, by default 1e-6.
     fms_damping : float, optional
         The damping factor for FMS, by default 0.9.
-    fms_maxiter : int, optional
+    fms_maxfevals : int, optional
         The maximum number of iterations for FMS, by default 50000.
     path_img : str, optional
         The path to save output images, by default "./output".
@@ -135,6 +136,7 @@ def run_single_simulation(
         popsize=cmaes_popsize,
         sigma0=cmaes_sigma,
         tolfun=cmaes_tolfun,
+        maxfevals=cmaes_maxfevals,
     )
 
     if land(curve_cmaes).any():
@@ -154,7 +156,7 @@ def run_single_simulation(
         travel_time=travel_time,
         tolfun=fms_tolfun,
         damping=fms_damping,
-        maxiter=fms_maxiter,
+        maxfevals=fms_maxfevals,
         verbose=True,
     )
     # FMS returns an extra dimensions, we ignore that

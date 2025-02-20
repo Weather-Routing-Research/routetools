@@ -99,7 +99,7 @@ def run_param_configuration(
             travel_time=params.get("travel_time"),
             tolfun=params.get("refiner_tolfun", 1e-6),
             damping=params.get("refiner_damping", 0.9),
-            maxiter=params.get("refiner_maxiter", 50000),
+            maxfevals=params.get("refiner_maxfevals", 50000),
             verbose=True,
         )
         # FMS returns an extra dimensions, we ignore that
