@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import typer
 from jax import grad, jacfwd, jacrev, jit, vmap
 
-from routetools.cmaes import cost_function
+from routetools.cost import cost_function
 from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices
 
