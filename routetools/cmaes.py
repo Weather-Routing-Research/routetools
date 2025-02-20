@@ -281,28 +281,110 @@ def cost_function(
 
 
 @partial(jit, static_argnums=(0, 2))
-def cost_function_constant_speed(
+def cost_function_constant_speed_time_invariant(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
     ],
     curve: jnp.ndarray,
     travel_stw: float,
 ) -> jnp.ndarray:
+    # Interpolate the vector field at the midpoints
+    curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
+    curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
+    uinterp, vinterp = vectorfield(curvex, curvey, None)
+
+    # Distances between points in X and Y
     dx = jnp.diff(curve[:, :, 0], axis=1)
     dy = jnp.diff(curve[:, :, 1], axis=1)
-    d2 = jnp.power(dx, 2) + jnp.power(dy, 2)  # Segment lengths
+    # Power of the distance (segment lengths)
+    d2 = jnp.power(dx, 2) + jnp.power(dy, 2)
+    # Power of the speed through water
     v2 = travel_stw**2
+    # Power of the current speed
+    w2 = uinterp**2 + vinterp**2
+    dw = dx * uinterp + dy * vinterp
+    # Cost is the time to travel the segment
+    dt = jnp.sqrt(d2 / (v2 - w2) + dw**2 / (v2 - w2) ** 2) - dw / (v2 - w2)
+    # Current > speed -> infeasible path
+    dt = jnp.where(v2 <= w2, float("inf"), dt)
+    t_total = jnp.sum(dt, axis=1)
+
+    # Turn any possible infinite costs into 10x the highest value
+    t_total = jnp.where(jnp.isinf(t_total), jnp.nan, t_total)
+    t_total = jnp.nan_to_num(t_total, nan=jnp.nanmax(t_total, initial=1e10) * 10)
+    return t_total
+
+
+@partial(jit, static_argnums=(0, 2))
+def cost_function_constant_speed_time_variant(
+    vectorfield: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
+    curve: jnp.ndarray,
+    travel_stw: float,
+) -> jnp.ndarray:
+    # We will interpolate the vector field at the midpoints
+    curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
+    curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
+
+    # Distances between points in X and Y
+    dx = jnp.diff(curve[:, :, 0], axis=1)
+    dy = jnp.diff(curve[:, :, 1], axis=1)
+    # Power of the distance (segment lengths)
+    d2 = jnp.power(dx, 2) + jnp.power(dy, 2)
+    # Power of the speed through water
+    v2 = travel_stw**2
+
+    # Initialize times
     t = jnp.zeros(curve.shape[:-1])
+    # Move along the curve one point at a time
     for i in range(1, curve.shape[0]):
-        # Call vectorfield with that point
-        uinterp, vinterp = vectorfield(curve[:, i, 0], curve[:, i, 1], t[:, i - 1])
-        # Compute the cost
+        # When sailing from i-1 to i, we interpolate the vector field at the midpoint
+        uinterp, vinterp = vectorfield(curvex[:, i - 1], curvey[:, i - 1], t[:, i - 1])
+        # Power of the current speed
         w2 = uinterp**2 + vinterp**2
         dw = dx[:, i] * uinterp + dy[:, i] * vinterp
-        cost = jnp.sqrt(d2[:, i] / (v2 - w2) + dw**2 / (v2 - w2) ** 2) - dw / (v2 - w2)
-        cost = jnp.where(v2 <= w2, 1e6, cost)  # Current > speed -> infeasible path
-        t = t.at[:, i].set(t[:, i - 1] + cost)
+        # Cost is the time to travel the segment
+        dt = jnp.sqrt(d2[:, i] / (v2 - w2) + dw**2 / (v2 - w2) ** 2) - dw / (v2 - w2)
+        # Current > speed -> infeasible path
+        dt = jnp.where(v2 <= w2, 1e6, dt)
+        # Compute the time at which we reach i
+        t = t.at[:, i].set(t[:, i - 1] + dt)
     return t[:, -1]
+
+
+@partial(jit, static_argnums=(0, 2))
+def cost_function_constant_cost_time_invariant(
+    vectorfield: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
+    curve: jnp.ndarray,
+    travel_time: float,
+) -> jnp.ndarray:
+    # Interpolate the vector field at the midpoints
+    curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
+    curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
+    uinterp, vinterp = vectorfield(curvex, curvey, None)
+
+    # Distances between points
+    dx = jnp.diff(curve[:, :, 0], axis=1)
+    dy = jnp.diff(curve[:, :, 1], axis=1)
+    # Times between points
+    dt = travel_time / (curve.shape[1] - 1)
+    # We compute the speed over ground from the displacement
+    dxdt = dx / dt
+    dydt = dy / dt
+
+    # We must navigate the path in a fixed time
+    cost = ((dxdt - uinterp) ** 2 + (dydt - vinterp) ** 2) / 2
+    total_cost = jnp.sum(cost, axis=1) * dt
+
+    # Turn any possible infinite costs into 10x the highest value
+    total_cost = jnp.where(jnp.isinf(total_cost), jnp.nan, total_cost)
+    total_cost = jnp.nan_to_num(
+        total_cost, nan=jnp.nanmax(total_cost, initial=1e10) * 10
+    )
+    return total_cost
 
 
 def _cma_evolution_strategy(
