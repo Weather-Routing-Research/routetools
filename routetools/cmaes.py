@@ -209,75 +209,26 @@ def cost_function(
     :param L: number of points evaluated in each Bézier curve
     :return: a batch of scalars (vector of shape B)
     """
-    if curve.shape[1] > 1:
-        # When the curve is defined by more than one point,
-        # we will interpolate the vector field at the midpoints
-        curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
-        curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
-        # We can also compute the distances between points
-        dx = jnp.diff(curve[:, :, 0], axis=1)
-        dy = jnp.diff(curve[:, :, 1], axis=1)
-        if travel_time is not None:
-            # The times between points are only relevant when travel_time is set
-            dt = travel_time / (curve.shape[1] - 1)
-            # If the SOG is not provided, but we need to compute the cost at constant
-            # time, we compute the speed over ground from the displacement
-            dxdt = dx / dt
-            dydt = dy / dt
-        else:
-            # Approximate the time between points using the Euclidean distance
-            dt = jnp.sqrt(jnp.power(dx, 2) + jnp.power(dy, 2)) / travel_stw
-            dt = jnp.mean(dt, axis=1)[:, jnp.newaxis]
-    elif (sog is not None) and (travel_time is not None):
-        # If the curve is defined by a single point,
-        # we will take the vector field at that point
-        curvex = curve[:, :, 0]
-        curvey = curve[:, :, 1]
-        # The time between points is the total travel time
-        dt = travel_time
-        # We can compute the displacements over ground
-        dxdt = sog[:, :, 0]
-        dydt = sog[:, :, 1]
-        dx = dxdt * dt
-        dy = dydt * dt
-    else:
-        raise ValueError(
-            "When curve has only one point, SOG and travel_time must be provided"
-        )
-
-    # Compute the time at each point
-    curvet = jnp.arange(curve.shape[1] - 1, dtype=float)[jnp.newaxis, :] * dt
-    # Interpolate the vector field at the midpoints
-    uinterp, vinterp = vectorfield(curvex, curvey, curvet)
-
+    cost: jnp.ndarray
     if travel_stw is not None:
-        # We navigate the path at fixed speed through water (STW)
-        # Source: Zermelo's problem for constant wind
-        # https://en.wikipedia.org/wiki/Zermelo%27s_navigation_problem#Constant-wind_case
-        v2 = travel_stw**2
-        w2 = uinterp**2 + vinterp**2
-        dw = dx * uinterp + dy * vinterp
-        d2 = dx**2 + dy**2  # Segment lengths
-        cost = jnp.sqrt(d2 / (v2 - w2) + dw**2 / (v2 - w2) ** 2) - dw / (v2 - w2)
-        cost = jnp.where(
-            v2 <= w2, float("inf"), cost
-        )  # Current > speed -> infeasible path
-        total_cost = jnp.sum(cost, axis=1)
+        if vectorfield.is_time_variant:  # type: ignore[attr-defined]
+            cost = cost_function_constant_speed_time_variant(
+                vectorfield, curve, travel_stw
+            )
+        else:
+            cost = cost_function_constant_speed_time_invariant(
+                vectorfield, curve, travel_stw
+            )
     elif travel_time is not None:
-        # We must navigate the path in a fixed time
-        cost = ((dxdt - uinterp) ** 2 + (dydt - vinterp) ** 2) / 2
-        total_cost = jnp.sum(cost, axis=1) * dt
-        # TODO: JIT works for static currents. When the vectorfield changes in
-        # time, you need to approximate the cost using Newton-Raphson.
+        cost = cost_function_constant_cost_time_invariant(
+            vectorfield, curve, travel_time
+        )
     else:
-        raise ValueError("travel_stw must be provided when travel_time is None")
-
+        raise ValueError("Either travel_stw or travel_time must be set.")
     # Turn any possible infinite costs into 10x the highest value
-    total_cost = jnp.where(jnp.isinf(total_cost), jnp.nan, total_cost)
-    total_cost = jnp.nan_to_num(
-        total_cost, nan=jnp.nanmax(total_cost, initial=1e10) * 10
-    )
-    return total_cost
+    cost = jnp.where(jnp.isinf(cost), jnp.nan, cost)
+    cost = jnp.nan_to_num(cost, nan=jnp.nanmax(cost, initial=1e10) * 10)
+    return cost
 
 
 @partial(jit, static_argnums=(0, 2))
