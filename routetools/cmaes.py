@@ -225,7 +225,9 @@ def cost_function(
             dxdt = dx / dt
             dydt = dy / dt
         else:
-            dt = 0  # Time between points is irrelevant
+            # Approximate the time between points using the Euclidean distance
+            dt = jnp.sqrt(jnp.power(dx, 2) + jnp.power(dy, 2)) / travel_stw
+            dt = jnp.mean(dt, axis=1)[:, jnp.newaxis]
     elif (sog is not None) and (travel_time is not None):
         # If the curve is defined by a single point,
         # we will take the vector field at that point
@@ -244,9 +246,9 @@ def cost_function(
         )
 
     # Compute the time at each point
-    curvet = jnp.arange(curve.shape[1] - 1, dtype=float) * dt
+    curvet = jnp.arange(curve.shape[1] - 1, dtype=float)[jnp.newaxis, :] * dt
     # Interpolate the vector field at the midpoints
-    uinterp, vinterp = vectorfield(curvex, curvey, curvet[jnp.newaxis, :])
+    uinterp, vinterp = vectorfield(curvex, curvey, curvet)
 
     if travel_stw is not None:
         # We navigate the path at fixed speed through water (STW)
@@ -276,6 +278,31 @@ def cost_function(
         total_cost, nan=jnp.nanmax(total_cost, initial=1e10) * 10
     )
     return total_cost
+
+
+@partial(jit, static_argnums=(0, 2))
+def cost_function_constant_speed(
+    vectorfield: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
+    curve: jnp.ndarray,
+    travel_stw: float,
+) -> jnp.ndarray:
+    dx = jnp.diff(curve[:, :, 0], axis=1)
+    dy = jnp.diff(curve[:, :, 1], axis=1)
+    d2 = jnp.power(dx, 2) + jnp.power(dy, 2)  # Segment lengths
+    v2 = travel_stw**2
+    t = jnp.zeros(curve.shape[:-1])
+    for i in range(1, curve.shape[0]):
+        # Call vectorfield with that point
+        uinterp, vinterp = vectorfield(curve[:, i, 0], curve[:, i, 1], t[:, i - 1])
+        # Compute the cost
+        w2 = uinterp**2 + vinterp**2
+        dw = dx[:, i] * uinterp + dy[:, i] * vinterp
+        cost = jnp.sqrt(d2[:, i] / (v2 - w2) + dw**2 / (v2 - w2) ** 2) - dw / (v2 - w2)
+        cost = jnp.where(v2 <= w2, 1e6, cost)  # Current > speed -> infeasible path
+        t = t.at[:, i].set(t[:, i - 1] + cost)
+    return t[:, -1]
 
 
 def _cma_evolution_strategy(
