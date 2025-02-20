@@ -276,10 +276,6 @@ def cost_function_constant_speed_time_invariant(
     # Current > speed -> infeasible path
     dt = jnp.where(v2 <= w2, float("inf"), dt)
     t_total = jnp.sum(dt, axis=1)
-
-    # Turn any possible infinite costs into 10x the highest value
-    t_total = jnp.where(jnp.isinf(t_total), jnp.nan, t_total)
-    t_total = jnp.nan_to_num(t_total, nan=jnp.nanmax(t_total, initial=1e10) * 10)
     return t_total
 
 
@@ -380,12 +376,6 @@ def cost_function_constant_cost_time_invariant(
     # We must navigate the path in a fixed time
     cost = ((dxdt - uinterp) ** 2 + (dydt - vinterp) ** 2) / 2
     total_cost = jnp.sum(cost, axis=1) * dt
-
-    # Turn any possible infinite costs into 10x the highest value
-    total_cost = jnp.where(jnp.isinf(total_cost), jnp.nan, total_cost)
-    total_cost = jnp.nan_to_num(
-        total_cost, nan=jnp.nanmax(total_cost, initial=1e10) * 10
-    )
     return total_cost
 
 
