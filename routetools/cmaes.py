@@ -199,15 +199,24 @@ def cost_function(
     - Fixed travel speed through water (STW)
     - Fixed travel time.
 
-    :param vectorfield: a function that returns the horizontal and vertical components
-    of the vector field.
-    :param curve: batch of trajectories (an array of shape B x L x 2).
-    :param sog: batch of speeds over ground, SOG (an array of shape B x L-1 x 2)
-    :param travel_stw: the boat will have this fixed speed through water, STW.
-    :param travel_time: When the curve is a single point, this is the time delta. Else,
-    the boat can regulate its STW but must complete each path in exactly this time.
-    :param L: number of points evaluated in each Bézier curve
-    :return: a batch of scalars (vector of shape B)
+    Parameters
+    ----------
+    vectorfield : Callable
+        A function that returns the horizontal and vertical components of the vector
+    curve : jnp.ndarray
+        A batch of trajectories (an array of shape B x L x 2)
+    sog : jnp.ndarray, optional
+        The speed over ground (SOG) of the boat, by default None
+    travel_stw : float, optional
+        The boat will have this fixed speed through water (STW), by default None
+    travel_time : float, optional
+        The boat can regulate its STW but must complete the path in exactly this time,
+        by default None
+
+    Returns
+    -------
+    jnp.ndarray
+        A batch of scalars (vector of shape B)
     """
     cost: jnp.ndarray
     if travel_stw is not None:
