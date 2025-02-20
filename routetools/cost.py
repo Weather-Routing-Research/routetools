@@ -5,13 +5,12 @@ import jax.numpy as jnp
 from jax import jit
 
 
-@partial(jit, static_argnums=(0, 3, 4))
+@partial(jit, static_argnums=(0, 2, 3))
 def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
     ],
     curve: jnp.ndarray,
-    sog: jnp.ndarray | None = None,
     travel_stw: float | None = None,
     travel_time: float | None = None,
 ) -> jnp.ndarray:
@@ -28,8 +27,6 @@ def cost_function(
         A function that returns the horizontal and vertical components of the vector
     curve : jnp.ndarray
         A batch of trajectories (an array of shape B x L x 2)
-    sog : jnp.ndarray, optional
-        The speed over ground (SOG) of the boat, by default None
     travel_stw : float, optional
         The boat will have this fixed speed through water (STW), by default None
     travel_time : float, optional
@@ -42,14 +39,6 @@ def cost_function(
         A batch of scalars (vector of shape B)
     """
     cost: jnp.ndarray
-    # If the curve is a single point with shape (2)
-    # We create the batch dimension B = 1 by expanding it to (1 x 2)
-    if curve.ndim == 1:
-        curve = curve[None, :]
-    # If each curve is a single point with shape (B x 2)
-    # We convert it to (B x 2 x 2) by duplicating the point
-    if curve.ndim == 2:
-        curve = jnp.repeat(curve[:, None, :], 2, axis=1)
     # Choose which cost function to use
     if travel_stw is not None:
         if vectorfield.is_time_variant:  # type: ignore[attr-defined]
@@ -172,7 +161,7 @@ def cost_function_constant_speed_time_variant(
         # Cost is the time to travel the segment
         dt = jnp.sqrt(d2[:, i] / (v2 - w2) + dw**2 / (v2 - w2) ** 2) - dw / (v2 - w2)
         # Current > speed -> infeasible path
-        dt = jnp.where(v2 <= w2, 1e6, dt)
+        dt = jnp.where(v2 <= w2, 1e10, dt)
         # Compute the time at which we reach i
         t = t.at[:, i].set(t[:, i - 1] + dt)
     return t[:, -1]

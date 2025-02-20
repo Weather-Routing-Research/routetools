@@ -190,15 +190,10 @@ def optimize_fms(
         h = float(d / travel_stw)
 
         def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
-            q0 = q0[None, None, :]
-            q1 = q1[None, None, :]
-            sog = (q1 - q0) / h
-            l1 = cost_function(
-                vectorfield, q0, sog=sog, travel_stw=travel_stw, travel_time=h
-            )
-            l2 = cost_function(
-                vectorfield, q1, sog=sog, travel_stw=travel_stw, travel_time=h
-            )
+            # Stack q0 and q1 to form array of shape (1, 2, 2)
+            q = jnp.vstack([q0, q1])[None, ...]
+            l1 = cost_function(vectorfield, q, travel_stw=travel_stw, travel_time=h)
+            l2 = cost_function(vectorfield, q, travel_stw=travel_stw, travel_time=h)
             ld = jnp.sum(h / 2 * (l1**2 + l2**2))
             return ld
 
