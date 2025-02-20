@@ -133,14 +133,23 @@ def run_param_configuration(
 
     print("\n------------------------\n")
 
+    # Build dataframe and store every 100 iterations
+    if idx % 100 == 0:
+        path_results = path_jsons.split("/")[0]
+        build_dataframe(path_jsons, path_results=path_results)
 
-def build_dataframe(path_jsons: str = "json") -> pd.DataFrame:
+
+def build_dataframe(
+    path_jsons: str = "json", path_results: str | None = None
+) -> pd.DataFrame:
     """Build a dataframe with the results.
 
     Parameters
     ----------
     path_jsons : str, optional
         Path to the folder where the JSON files are stored, by default "json"
+    path_results : str, optional
+        Path to the output folder, by default None
 
     Returns
     -------
@@ -205,6 +214,8 @@ def build_dataframe(path_jsons: str = "json") -> pd.DataFrame:
         on=["vectorfield", "water_level", "resolution", "random_seed"],
         how="left",
     )
+    if path_results:
+        df.to_csv(path_results + "/results.csv", index=False, float_format="%.6f")
     return df
 
 
@@ -241,8 +252,7 @@ def main(
             executor.submit(run_param_configuration, params, path_jsons, idx, seed_max)
 
     # Build the dataframe
-    df = build_dataframe(path_jsons)
-    df.to_csv(path_results + "/results.csv", index=False, float_format="%.6f")
+    build_dataframe(path_jsons, path_results=path_results)
 
 
 if __name__ == "__main__":
