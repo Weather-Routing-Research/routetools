@@ -149,12 +149,12 @@ def cost_function_constant_speed_time_variant(
     # Power of the speed through water
     v2 = travel_stw**2
 
-    # Initialize times
-    t = jnp.zeros(curve.shape[:-1])
-    # Move along the curve one point at a time
-    for i in range(1, curve.shape[0]):
+    # Initialize times as an array of size B
+    t = jnp.zeros(curve.shape[0])
+    # Move along the curve one point at a time (dimension L)
+    for i in range(curve.shape[1] - 1):
         # When sailing from i-1 to i, we interpolate the vector field at the midpoint
-        uinterp, vinterp = vectorfield(curvex[:, i - 1], curvey[:, i - 1], t[:, i - 1])
+        uinterp, vinterp = vectorfield(curvex[:, i], curvey[:, i], t)
         # Power of the current speed
         w2 = uinterp**2 + vinterp**2
         dw = dx[:, i] * uinterp + dy[:, i] * vinterp
@@ -162,9 +162,9 @@ def cost_function_constant_speed_time_variant(
         dt = jnp.sqrt(d2[:, i] / (v2 - w2) + dw**2 / (v2 - w2) ** 2) - dw / (v2 - w2)
         # Current > speed -> infeasible path
         dt = jnp.where(v2 <= w2, 1e10, dt)
-        # Compute the time at which we reach i
-        t = t.at[:, i].set(t[:, i - 1] + dt)
-    return t[:, -1]
+        # Update the times
+        t = t + dt
+    return t
 
 
 @partial(jit, static_argnums=(0, 2))
