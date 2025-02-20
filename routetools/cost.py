@@ -42,6 +42,15 @@ def cost_function(
         A batch of scalars (vector of shape B)
     """
     cost: jnp.ndarray
+    # If the curve is a single point with shape (2)
+    # We create the batch dimension B = 1 by expanding it to (1 x 2)
+    if curve.ndim == 1:
+        curve = curve[None, :]
+    # If each curve is a single point with shape (B x 2)
+    # We convert it to (B x 2 x 2) by duplicating the point
+    if curve.ndim == 2:
+        curve = jnp.repeat(curve[:, None, :], 2, axis=1)
+    # Choose which cost function to use
     if travel_stw is not None:
         if vectorfield.is_time_variant:  # type: ignore[attr-defined]
             cost = cost_function_constant_speed_time_variant(
@@ -52,9 +61,12 @@ def cost_function(
                 vectorfield, curve, travel_stw
             )
     elif travel_time is not None:
-        cost = cost_function_constant_cost_time_invariant(
-            vectorfield, curve, travel_time
-        )
+        if vectorfield.is_time_variant:  # type: ignore[attr-defined]
+            raise ValueError("Time variant vector fields are not supported.")
+        else:
+            cost = cost_function_constant_cost_time_invariant(
+                vectorfield, curve, travel_time
+            )
     else:
         raise ValueError("Either travel_stw or travel_time must be set.")
     # Turn any possible infinite costs into 10x the highest value
