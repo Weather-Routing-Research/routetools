@@ -288,10 +288,27 @@ def cost_function_constant_speed_time_invariant(
     curve: jnp.ndarray,
     travel_stw: float,
 ) -> jnp.ndarray:
+    """
+    Compute the travel time of a batch of paths navigating over a vector field.
+
+    Parameters
+    ----------
+    vectorfield : Callable
+        A function that returns the horizontal and vertical components of the vector
+    curve : jnp.ndarray
+        A batch of trajectories (an array of shape B x L x 2)
+    travel_stw : float
+        The boat will have this fixed speed through water (STW)
+
+    Returns
+    -------
+    jnp.ndarray
+        A batch of scalars (vector of shape B)
+    """
     # Interpolate the vector field at the midpoints
     curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
     curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
-    uinterp, vinterp = vectorfield(curvex, curvey, None)
+    uinterp, vinterp = vectorfield(curvex, curvey, jnp.array([]))
 
     # Distances between points in X and Y
     dx = jnp.diff(curve[:, :, 0], axis=1)
@@ -323,6 +340,23 @@ def cost_function_constant_speed_time_variant(
     curve: jnp.ndarray,
     travel_stw: float,
 ) -> jnp.ndarray:
+    """
+    Compute the travel time of a batch of paths navigating over a vector field.
+
+    Parameters
+    ----------
+    vectorfield : Callable
+        A function that returns the horizontal and vertical components of the vector
+    curve : jnp.ndarray
+        A batch of trajectories (an array of shape B x L x 2)
+    travel_stw : float
+        The boat will have this fixed speed through water (STW)
+
+    Returns
+    -------
+    jnp.ndarray
+        A batch of scalars (vector of shape B)
+    """
     # We will interpolate the vector field at the midpoints
     curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
     curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
@@ -361,10 +395,27 @@ def cost_function_constant_cost_time_invariant(
     curve: jnp.ndarray,
     travel_time: float,
 ) -> jnp.ndarray:
+    """
+    Compute the fuel consumption of a batch of paths navigating over a vector field.
+
+    Parameters
+    ----------
+    vectorfield : Callable
+        A function that returns the horizontal and vertical components of the vector
+    curve : jnp.ndarray
+        A batch of trajectories (an array of shape B x L x 2)
+    travel_time : float
+        The boat can regulate its STW but must complete the path in exactly this time.
+
+    Returns
+    -------
+    jnp.ndarray
+        A batch of scalars (vector of shape B)
+    """
     # Interpolate the vector field at the midpoints
     curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
     curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
-    uinterp, vinterp = vectorfield(curvex, curvey, None)
+    uinterp, vinterp = vectorfield(curvex, curvey, jnp.array([]))
 
     # Distances between points
     dx = jnp.diff(curve[:, :, 0], axis=1)
