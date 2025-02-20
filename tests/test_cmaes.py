@@ -3,84 +3,110 @@ import pytest
 
 from routetools.cmaes import optimize
 from routetools.land import Land
-from routetools.vectorfield import vectorfield_fourvortices, vectorfield_techy
+from routetools.vectorfield import (
+    vectorfield_fourvortices,
+    vectorfield_swirlys,
+    vectorfield_techy,
+)
 
 
 @pytest.mark.parametrize(
-    "vectorfield, src, dst, optimize_time",
+    "vectorfield, src, dst, expected",
     [
         (
             vectorfield_fourvortices,
             jnp.array([0, 0]),
             jnp.array([6, 2]),
-            True,
-        ),
-        (
-            vectorfield_fourvortices,
-            jnp.array([0, 0]),
-            jnp.array([6, 2]),
-            False,
+            10.0,
         ),
         (
             vectorfield_techy,
             jnp.array([jnp.cos(jnp.pi / 6), jnp.sin(jnp.pi / 6)]),
             jnp.array([0, 1]),
-            True,
+            1.04,
         ),
     ],
 )
-def test_cmaes(
+def test_cmaes_constant_speed(
     vectorfield: callable,
     src: jnp.array,
     dst: jnp.array,
-    optimize_time: bool,
+    expected: float,
     L: int = 64,
 ):
     curve, cost = optimize(
         vectorfield,
         src=src,
         dst=dst,
-        travel_stw=None if optimize_time else 1,
-        travel_time=10 if optimize_time else None,
+        travel_stw=1,
         L=L,
         popsize=10,
         sigma0=5,
         tolfun=0.1,
+        seed=1,
     )
     assert isinstance(curve, jnp.ndarray)
     assert curve.shape[0] == L
     assert curve.shape[1] == 2
     assert isinstance(cost, float)
+    assert cost <= expected, f"cost: {cost} > expected: {expected}"
 
 
 @pytest.mark.parametrize(
-    "vectorfield, src, dst, optimize_time",
+    "vectorfield, src, dst, expected",
+    [
+        (
+            vectorfield_swirlys,
+            jnp.array([0, 0]),
+            jnp.array([6, 5]),
+            6.0,
+        ),
+    ],
+)
+def test_cmaes_constant_time(
+    vectorfield: callable,
+    src: jnp.array,
+    dst: jnp.array,
+    expected: float,
+    L: int = 64,
+):
+    curve, cost = optimize(
+        vectorfield,
+        src=src,
+        dst=dst,
+        travel_time=30,
+        L=L,
+        popsize=10,
+        sigma0=5,
+        tolfun=0.1,
+        seed=1,
+    )
+    assert isinstance(curve, jnp.ndarray)
+    assert curve.shape[0] == L
+    assert curve.shape[1] == 2
+    assert isinstance(cost, float)
+    assert cost <= expected, f"cost: {cost} > expected: {expected}"
+
+
+@pytest.mark.parametrize(
+    "vectorfield, src, dst",
     [
         (
             vectorfield_fourvortices,
             jnp.array([0, 0]),
             jnp.array([6, 2]),
-            True,
-        ),
-        (
-            vectorfield_fourvortices,
-            jnp.array([0, 0]),
-            jnp.array([6, 2]),
-            False,
         ),
         (
             vectorfield_techy,
             jnp.array([jnp.cos(jnp.pi / 6), jnp.sin(jnp.pi / 6)]),
             jnp.array([0, 1]),
-            True,
         ),
     ],
 )
-def test_cmaes_with_land(
+def test_cmaes_constant_speed_with_land(
     vectorfield: callable,
     src: jnp.array,
     dst: jnp.array,
-    optimize_time: bool,
 ):
     xlim = sorted((src[0], dst[0]))
     ylim = sorted((src[1], dst[1]))
@@ -92,11 +118,11 @@ def test_cmaes_with_land(
         dst=dst,
         land=land,
         penalty=0.1,
-        travel_stw=None if optimize_time else 1,
-        travel_time=10 if optimize_time else None,
+        travel_stw=1,
         popsize=10,
         sigma0=5,
         tolfun=0.1,
+        seed=1,
     )
     assert isinstance(curve, jnp.ndarray)
     assert curve.shape[1] == 2
@@ -104,42 +130,33 @@ def test_cmaes_with_land(
 
 
 @pytest.mark.parametrize(
-    "vectorfield, src, dst, optimize_time, K, L, num_pieces",
+    "vectorfield, src, dst, expected, K, L, num_pieces",
     [
         (
             vectorfield_fourvortices,
             jnp.array([0, 0]),
             jnp.array([6, 2]),
-            True,
-            7,
-            61,
-            2,
-        ),
-        (
-            vectorfield_fourvortices,
-            jnp.array([0, 0]),
-            jnp.array([6, 2]),
-            False,
+            10.0,
             13,
-            64,
-            3,
+            61,
+            4,
         ),
         (
             vectorfield_techy,
             jnp.array([jnp.cos(jnp.pi / 6), jnp.sin(jnp.pi / 6)]),
             jnp.array([0, 1]),
-            True,
-            13,
+            1.04,
+            7,
             61,
-            4,
+            2,
         ),
     ],
 )
-def test_cmaes_piecewise(
+def test_cmaes_constant_speed_piecewise(
     vectorfield: callable,
     src: jnp.array,
     dst: jnp.array,
-    optimize_time: bool,
+    expected: float,
     K: int,
     L: int,
     num_pieces: int,
@@ -148,16 +165,17 @@ def test_cmaes_piecewise(
         vectorfield,
         src=src,
         dst=dst,
-        travel_stw=None if optimize_time else 1,
-        travel_time=10 if optimize_time else None,
+        travel_stw=1,
         K=K,
         L=L,
         num_pieces=num_pieces,
-        popsize=10,
+        popsize=100,
         sigma0=5,
         tolfun=0.1,
+        seed=1,
     )
     assert isinstance(curve, jnp.ndarray)
     assert curve.shape[0] == L
     assert curve.shape[1] == 2
     assert isinstance(cost, float)
+    assert cost <= expected, f"cost: {cost} > expected: {expected}"

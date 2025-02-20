@@ -1,8 +1,55 @@
+from collections.abc import Callable
+
 import jax.numpy as jnp
 from jax import jit
 
 
+def time_variant(
+    func: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
+) -> Callable[[jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]]:
+    """Mark a vector field as time variant.
+
+    Parameters
+    ----------
+    func : Callable
+        Vector field function.
+
+    Returns
+    -------
+    Callable
+        Vector field function with time variant attribute.
+    """
+    func.is_time_variant = True  # type: ignore[attr-defined]
+
+    return func
+
+
+def time_invariant(
+    func: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
+) -> Callable[[jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]]:
+    """Mark a vector field as time invariant.
+
+    Parameters
+    ----------
+    func : Callable
+        Vector field function.
+
+    Returns
+    -------
+    Callable
+        Vector field function with time invariant attribute.
+    """
+    func.is_time_variant = False  # type: ignore[attr-defined]
+
+    return func
+
+
 @jit
+@time_invariant
 def vectorfield_circular(
     x: jnp.ndarray,
     y: jnp.ndarray,
@@ -23,6 +70,7 @@ def vectorfield_circular(
 
 
 @jit
+@time_variant
 def vectorfield_doublegyre(
     x: jnp.ndarray,
     y: jnp.ndarray,
@@ -59,6 +107,7 @@ def vectorfield_doublegyre(
 
 
 @jit
+@time_invariant
 def vectorfield_fourvortices(
     x: jnp.ndarray,
     y: jnp.ndarray,
@@ -84,6 +133,7 @@ def vectorfield_fourvortices(
 
 
 @jit
+@time_invariant
 def vectorfield_swirlys(
     x: jnp.ndarray,
     y: jnp.ndarray,
@@ -101,6 +151,7 @@ def vectorfield_swirlys(
 
 
 @jit
+@time_variant
 def vectorfield_techy(
     x: jnp.ndarray, y: jnp.ndarray, t: jnp.ndarray, sink: float = -0.3
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
@@ -123,6 +174,7 @@ def vectorfield_techy(
 
 
 @jit
+@time_invariant
 def vectorfield_zero(
     x: jnp.ndarray, y: jnp.ndarray, t: jnp.ndarray
 ) -> tuple[jnp.ndarray, jnp.ndarray]:

@@ -83,6 +83,7 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
             def inner(x: jnp.ndarray, y: jnp.ndarray, t: jnp.ndarray) -> jnp.ndarray:
                 return vffun(x, y, t, **vfparams_extra)  # type: ignore[no-any-return]
 
+            inner.is_time_variant = vffun.is_time_variant  # type: ignore[attr-defined]
             return inner
 
         vfparams["vectorfield_fun"] = vectorfield()  # type: ignore[no-untyped-call]
