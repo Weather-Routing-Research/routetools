@@ -129,6 +129,7 @@ def _cma_evolution_strategy(
     popsize: int = 200,
     sigma0: float = 1,
     tolfun: float = 1e-4,
+    damping: float = 1,
     maxfevals: int = 25000,
     seed: float = jnp.nan,
     verbose: bool = True,
@@ -144,6 +145,7 @@ def _cma_evolution_strategy(
             "tolfun": tolfun,
             "maxfevals": maxfevals,
             "seed": seed,
+            "CSA_dampfac": damping,  # v positive multiplier for step-size damping
         }
         | kwargs,
     )
@@ -189,6 +191,7 @@ def optimize(
     popsize: int = 200,
     sigma0: float = 1,
     tolfun: float = 1e-4,
+    damping: float = 1,
     maxfevals: int = 25000,
     seed: float = jnp.nan,
     verbose: bool = True,
@@ -231,6 +234,8 @@ def optimize(
         Initial standard deviation to sample new solutions. By default 1
     tolfun : float, optional
         Tolerance for the optimizer. By default 1e-4
+    damping : float, optional
+        Damping factor for the optimizer. By default 1
     maxfevals : int, optional
         Maximum number of function evaluations. By default 25000
     seed : int, optional
@@ -264,6 +269,7 @@ def optimize(
         popsize=popsize,
         sigma0=sigma0,
         tolfun=tolfun,
+        damping=damping,
         maxfevals=maxfevals,
         seed=seed,
         verbose=verbose,
@@ -295,6 +301,7 @@ def optimize_with_increasing_penalization(
     popsize: int = 200,
     sigma0: float = 1,
     tolfun: float = 1e-4,
+    damping: float = 1,
     maxfevals: int = 25000,
     seed: float = jnp.nan,
     verbose: bool = True,
@@ -341,6 +348,8 @@ def optimize_with_increasing_penalization(
         Initial standard deviation to sample new solutions. By default 1
     tolfun : float, optional
         Tolerance for the optimizer. By default 1e-4
+    damping : float, optional
+        Damping factor for the optimizer. By default 1
     maxfevals : int, optional
         Maximum number of function evaluations. By default 25000
     seed : int, optional
@@ -382,6 +391,7 @@ def optimize_with_increasing_penalization(
             popsize=popsize,
             sigma0=sigma0,
             tolfun=tolfun,
+            damping=damping,
             maxfevals=maxfevals,
             seed=seed,
             verbose=verbose,
