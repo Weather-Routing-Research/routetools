@@ -81,6 +81,7 @@ def run_param_configuration(
             popsize=params.get("popsize", 2000),
             sigma0=params.get("sigma0"),
             tolfun=params.get("tolfun", 0.0001),
+            damping=params.get("damping", 1.0),
             maxfevals=params.get("maxfevals", 50000),
         )
         if land(curve).any():

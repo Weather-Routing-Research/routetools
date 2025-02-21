@@ -57,6 +57,7 @@ L = [128, 256, 512]
 K = [3, 6, 9]
 sigma0 = [1, 2, 3]
 tolfun = [1e-6]
+damping = [1.0]
 maxfevals = [50000]
 
 [refiner.fms]
