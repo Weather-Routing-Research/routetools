@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable
 
 import jax.numpy as jnp
@@ -117,6 +118,56 @@ def plot_curve(
     fig.tight_layout(pad=2.5)
 
     return fig, ax
+
+
+def plot_route_from_json(path_json: str) -> tuple[Figure, Axes]:
+    """Plot the route from a json file.
+
+    Parameters
+    ----------
+    path_json : str
+        Path to the json file with the route
+
+    Returns
+    -------
+    tuple[Figure, Axes]
+        Figure and Axes objects
+    """
+    with open(path_json) as file:
+        data: dict = json.load(file)
+
+    # Get the data
+    ls_curve = [jnp.array(data["curve_cmaes"]), jnp.array(data["curve_fms"])]
+    ls_name = ["CMA-ES", "FMS"]
+    ls_cost = [data["cost_cmaes"], data["cost_fms"]]
+
+    # Load the vectorfield function
+    vfname = data["vectorfield"]
+    vectorfield_module = __import__(
+        "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
+    )
+    vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
+
+    # Get the land
+    land = Land(
+        xlim=data["xlim"],
+        ylim=data["ylim"],
+        water_level=data["water_level"],
+        resolution=data.get("resolution", 0),
+        interpolate=data.get("interpolate", 100),
+        outbounds_is_land=data["outbounds_is_land"],
+        random_seed=data.get("random_seed", 0),
+    )
+
+    return plot_curve(
+        vectorfield,
+        ls_curve,
+        ls_name=ls_name,
+        ls_cost=ls_cost,
+        land=land,
+        xlim=data["xlim"],
+        ylim=data["ylim"],
+    )
 
 
 def plot_table_aggregated(
