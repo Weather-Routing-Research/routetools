@@ -40,8 +40,8 @@ def run_param_configuration(
     print(f"Running configuration {idx}...")
     src = params["src"]
     dst = params["dst"]
-    xlim = params.pop("xlim")
-    ylim = params.pop("ylim")
+    xlim = params["xlim"]
+    ylim = params["ylim"]
 
     land = Land(
         xlim,
@@ -248,10 +248,16 @@ def main(
     path_jsons = path_results + "/json"
     os.makedirs(path_jsons, exist_ok=True)
 
-    # Use ThreadPoolExecutor to parallelize the execution
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    if max_workers == 1:
         for idx, params in enumerate(ls_params):
-            executor.submit(run_param_configuration, params, path_jsons, idx, seed_max)
+            run_param_configuration(params, path_jsons, idx, seed_max)
+    else:
+        # Use ThreadPoolExecutor to parallelize the execution
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for idx, params in enumerate(ls_params):
+                executor.submit(
+                    run_param_configuration, params, path_jsons, idx, seed_max
+                )
 
     # Build the dataframe
     build_dataframe(path_jsons, path_results=path_results)
