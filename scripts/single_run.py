@@ -12,22 +12,24 @@ from routetools.plot import plot_curve
 
 
 def run_single_simulation(
-    vectorfield: str = "fourvortices",
-    land_waterlevel: float = 0.8,
-    land_resolution: int = 5,
+    vectorfield: str = "zero",
+    land_waterlevel: float = 0.7,
+    land_resolution: int = 20,
     land_seed: int = 0,
-    land_penalty: float = 10,
+    land_penalty: float = 100,
     outbounds_is_land: bool = False,
     cmaes_K: int = 6,
-    cmaes_L: int = 128,
+    cmaes_L: int = 256,
     cmaes_numpieces: int = 1,
-    cmaes_popsize: int = 2000,
+    cmaes_popsize: int = 5000,
     cmaes_sigma: float = 1,
     cmaes_tolfun: float = 0.1,
-    cmaes_maxfevals: int = 20000,
-    fms_tolfun: float = 1e-6,
+    cmaes_damping: float = 1.0,
+    cmaes_maxfevals: int = 200000,
+    cmaes_seed: int = 0,
+    fms_tolfun: float = 1e-10,
     fms_damping: float = 0.9,
-    fms_maxfevals: int = 5000,
+    fms_maxfevals: int = 100000,
     path_img: str = "./output",
     path_config: str = "config.toml",
 ):
@@ -123,7 +125,9 @@ def run_single_simulation(
         popsize=cmaes_popsize,
         sigma0=cmaes_sigma,
         tolfun=cmaes_tolfun,
+        damping=cmaes_damping,
         maxfevals=cmaes_maxfevals,
+        seed=cmaes_seed,
     )
 
     if land(curve_cmaes).any():
