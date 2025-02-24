@@ -57,7 +57,7 @@ def run_param_configuration(
         print("Source or destination is on land. We will try another seed.")
         # If this happens, we increase the seed and try again
         params["random_seed"] = int(params.get("random_seed") + seed_max)
-        run_param_configuration(
+        return run_param_configuration(
             params, path_jsons=path_jsons, idx=idx, seed_max=seed_max
         )
     else:
