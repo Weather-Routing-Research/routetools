@@ -38,14 +38,10 @@ def run_param_configuration(
         return
 
     print(f"Running configuration {idx}...")
-    src = params["src"]
-    dst = params["dst"]
-    xlim = params["xlim"]
-    ylim = params["ylim"]
 
     land = Land(
-        xlim,
-        ylim,
+        params["xlim"],
+        params["ylim"],
         water_level=params.get("water_level"),
         resolution=params.get("resolution"),
         random_seed=params.get("random_seed"),
@@ -53,7 +49,7 @@ def run_param_configuration(
     )
 
     # Is source or destination on land?
-    if land(src) or land(dst):
+    if land(params["src"]) or land(params["dst"]):
         print("Source or destination is on land. We will try another seed.")
         # If this happens, we increase the seed and try again
         params["random_seed"] = int(params.get("random_seed") + seed_max)
@@ -69,8 +65,8 @@ def run_param_configuration(
 
         curve, cost = optimize(
             vectorfield,
-            src,
-            dst,
+            params["src"],
+            params["dst"],
             land=land,
             penalty=params.get("penalty", 10),
             travel_stw=params.get("travel_stw"),
