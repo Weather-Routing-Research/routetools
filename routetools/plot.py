@@ -126,10 +126,11 @@ def plot_table_mean_std(
     column_columns: list,
     vmin: float = None,
     vmax: float = None,
+    round_decimals: int = 2,
     cmap: str = "coolwarm",
     colorbar_label: str = "",
     title: str = "",
-):
+) -> tuple[Figure, Axes]:
     """
     Plot a heatmap for a given metric with mean ± standard deviation.
 
@@ -146,35 +147,45 @@ def plot_table_mean_std(
     column_columns : list
         List of column names to use as column indices (e.g., ["K", "L"]).
     vmin : float, optional
-        Minimum value for the heatmap color scale (default is None).
+        Minimum value for the heatmap color scale, default is None.
     vmax : float, optional
-        Maximum value for the heatmap color scale (default is None).
+        Maximum value for the heatmap color scale, default is None.
+    round_decimals : int, optional
+        Number of decimals to round the values, default is 2.
     cmap : str, optional
-        Colormap for the heatmap (default is "coolwarm").
+        Colormap for the heatmap, default is "coolwarm".
     colorbar_label : str, optional
-        Label for the colorbar (default is an empty string).
+        Label for the colorbar, default is an empty string.
     title : str, optional
-        Title of the heatmap (default is an empty string).
+        Title of the heatmap, default is an empty string.
 
     Returns
     -------
-    None
-        Displays the heatmap plot.
+    tuple[Figure, Axes]
+        Figure and Axes objects for the heatmap.
     """
     # Create pivot tables for mean and standard deviation
-    pivot_table_mean = df.pivot_table(
-        values=value_column,
-        index=index_columns,
-        columns=column_columns,
-        aggfunc=lambda x: np.nanmean(x),
-    ).round(2)
+    pivot_table_mean = (
+        df.pivot_table(
+            values=value_column,
+            index=index_columns,
+            columns=column_columns,
+            aggfunc=lambda x: np.nanmean(x),
+        )
+        .round(round_decimals)
+        .astype(float if round_decimals > 0 else int)
+    )
 
-    pivot_table_std = df.pivot_table(
-        values=value_column,
-        index=index_columns,
-        columns=column_columns,
-        aggfunc=lambda x: np.nanstd(x),
-    ).round(2)
+    pivot_table_std = (
+        df.pivot_table(
+            values=value_column,
+            index=index_columns,
+            columns=column_columns,
+            aggfunc=lambda x: np.nanstd(x),
+        )
+        .round(round_decimals)
+        .astype(float if round_decimals > 0 else int)
+    )
 
     # Combine mean and std into a single pivot table for annotation
     pivot_table_combined = pivot_table_mean.copy()
