@@ -2,6 +2,9 @@ from collections.abc import Callable
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -113,4 +116,96 @@ def plot_curve(
     # Adjust the layout
     fig.tight_layout(pad=2.5)
 
+    return fig, ax
+
+
+def plot_table_mean_std(
+    df: pd.DataFrame,
+    value_column: str,
+    index_columns: list,
+    column_columns: list,
+    vmin: float = None,
+    vmax: float = None,
+    cmap: str = "coolwarm",
+    colorbar_label: str = "",
+    title: str = "",
+):
+    """
+    Plot a heatmap for a given metric with mean ± standard deviation.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The input DataFrame containing the data to be visualized.
+    mask : np.ndarray
+        A boolean mask to filter the DataFrame.
+    value_column : str
+        The name of the column containing the values to be aggregated.
+    index_columns : list
+        List of column names to use as row indices (e.g., ["sigma0", "popsize"]).
+    column_columns : list
+        List of column names to use as column indices (e.g., ["K", "L"]).
+    vmin : float, optional
+        Minimum value for the heatmap color scale (default is None).
+    vmax : float, optional
+        Maximum value for the heatmap color scale (default is None).
+    cmap : str, optional
+        Colormap for the heatmap (default is "coolwarm").
+    colorbar_label : str, optional
+        Label for the colorbar (default is an empty string).
+    title : str, optional
+        Title of the heatmap (default is an empty string).
+
+    Returns
+    -------
+    None
+        Displays the heatmap plot.
+    """
+    # Create pivot tables for mean and standard deviation
+    pivot_table_mean = df.pivot_table(
+        values=value_column,
+        index=index_columns,
+        columns=column_columns,
+        aggfunc=lambda x: np.nanmean(x),
+    ).round(2)
+
+    pivot_table_std = df.pivot_table(
+        values=value_column,
+        index=index_columns,
+        columns=column_columns,
+        aggfunc=lambda x: np.nanstd(x),
+    ).round(2)
+
+    # Combine mean and std into a single pivot table for annotation
+    pivot_table_combined = pivot_table_mean.copy()
+    for col in pivot_table_combined.columns:
+        pivot_table_combined[col] = (
+            pivot_table_mean[col].astype(str)
+            + "\n ± "
+            + pivot_table_std[col].astype(str)
+        )
+
+    # Remove first column level if multi-indexed
+    if isinstance(pivot_table_combined.columns, pd.MultiIndex):
+        pivot_table_combined.columns = pivot_table_combined.columns.droplevel()
+        pivot_table_mean.columns = pivot_table_mean.columns.droplevel()
+
+    # Plot heatmap
+    fig, ax = plt.subplots(figsize=(14, 12))
+    sns.heatmap(
+        pivot_table_mean,
+        annot=pivot_table_combined,
+        vmin=vmin,
+        vmax=vmax,
+        fmt="",
+        cmap=cmap,
+        cbar_kws={"label": colorbar_label},
+        annot_kws={"ha": "center", "va": "center"},
+        ax=ax,
+    )
+
+    # Set labels and title
+    ax.set_xlabel(" - ".join(column_columns))
+    ax.set_ylabel(" - ".join(index_columns))
+    ax.set_title(title)
     return fig, ax
