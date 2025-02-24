@@ -119,13 +119,14 @@ def plot_curve(
     return fig, ax
 
 
-def plot_table_mean_std(
+def plot_table_aggregated(
     df: pd.DataFrame,
     value_column: str,
-    index_columns: list,
-    column_columns: list,
-    vmin: float = None,
-    vmax: float = None,
+    index_columns: list[str],
+    column_columns: list[str],
+    agg: str = "mean",
+    vmin: float | None = None,
+    vmax: float | None = None,
     round_decimals: int = 2,
     cmap: str = "coolwarm",
     colorbar_label: str = "",
@@ -146,6 +147,8 @@ def plot_table_mean_std(
         List of column names to use as row indices (e.g., ["sigma0", "popsize"]).
     column_columns : list
         List of column names to use as column indices (e.g., ["K", "L"]).
+    agg : str, optional
+        Aggregation function to use, default is "mean".
     vmin : float, optional
         Minimum value for the heatmap color scale, default is None.
     vmax : float, optional
@@ -164,48 +167,51 @@ def plot_table_mean_std(
     tuple[Figure, Axes]
         Figure and Axes objects for the heatmap.
     """
-    # Create pivot tables for mean and standard deviation
-    pivot_table_mean = (
-        df.pivot_table(
-            values=value_column,
-            index=index_columns,
-            columns=column_columns,
-            aggfunc=lambda x: np.nanmean(x),
-        )
-        .round(round_decimals)
-        .astype(float if round_decimals > 0 else int)
-    )
 
-    pivot_table_std = (
-        df.pivot_table(
-            values=value_column,
-            index=index_columns,
-            columns=column_columns,
-            aggfunc=lambda x: np.nanstd(x),
+    def _create_pivot_table(aggfunc: Callable[[pd.Series], float]) -> pd.DataFrame:
+        """Auxiliary function to create a pivot table with aggregated values."""
+        return (
+            df.pivot_table(
+                values=value_column,
+                index=index_columns,
+                columns=column_columns,
+                aggfunc=aggfunc,
+            )
+            .round(round_decimals)
+            .astype(float if round_decimals > 0 else int)
         )
-        .round(round_decimals)
-        .astype(float if round_decimals > 0 else int)
-    )
 
-    # Combine mean and std into a single pivot table for annotation
-    pivot_table_combined = pivot_table_mean.copy()
-    for col in pivot_table_combined.columns:
-        pivot_table_combined[col] = (
-            pivot_table_mean[col].astype(str)
-            + "\n ± "
-            + pivot_table_std[col].astype(str)
-        )
+    if agg == "mean":
+        # Create pivot tables for mean and standard deviation
+        pivot_table_values = _create_pivot_table(np.nanmean)
+        pivot_table_std = _create_pivot_table(np.nanstd)
+
+        # Combine mean and std into a single pivot table for annotation
+        pivot_table_annot = pivot_table_values.copy()
+        for col in pivot_table_annot.columns:
+            pivot_table_annot[col] = (
+                pivot_table_values[col].astype(str)
+                + "\n ± "
+                + pivot_table_std[col].astype(str)
+            )
+
+    elif agg == "sum":
+        # Create pivot table for sum
+        pivot_table_values = _create_pivot_table(np.nansum)
+        pivot_table_annot = pivot_table_values.copy()
+    else:
+        raise ValueError(f"Invalid aggregation function: {agg}")
 
     # Remove first column level if multi-indexed
-    if isinstance(pivot_table_combined.columns, pd.MultiIndex):
-        pivot_table_combined.columns = pivot_table_combined.columns.droplevel()
-        pivot_table_mean.columns = pivot_table_mean.columns.droplevel()
+    if isinstance(pivot_table_annot.columns, pd.MultiIndex):
+        pivot_table_annot.columns = pivot_table_annot.columns.droplevel()
+        pivot_table_values.columns = pivot_table_values.columns.droplevel()
 
     # Plot heatmap
     fig, ax = plt.subplots(figsize=(14, 12))
     sns.heatmap(
-        pivot_table_mean,
-        annot=pivot_table_combined,
+        pivot_table_values,
+        annot=pivot_table_annot,
         vmin=vmin,
         vmax=vmax,
         fmt="",
