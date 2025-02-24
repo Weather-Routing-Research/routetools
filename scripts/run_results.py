@@ -42,17 +42,17 @@ def run_param_configuration(
     land = Land(
         params["xlim"],
         params["ylim"],
-        water_level=params.get("water_level"),
-        resolution=params.get("resolution"),
-        random_seed=params.get("random_seed"),
-        outbounds_is_land=params.get("outbounds_is_land"),
+        water_level=params["water_level"],
+        resolution=params["resolution"],
+        random_seed=params["random_seed"],
+        outbounds_is_land=params["outbounds_is_land"],
     )
 
     # Is source or destination on land?
     if land(params["src"]) or land(params["dst"]):
         print("Source or destination is on land. We will try another seed.")
         # If this happens, we increase the seed and try again
-        params["random_seed"] = int(params.get("random_seed") + seed_max)
+        params["random_seed"] = int(params["random_seed"] + seed_max)
         return run_param_configuration(
             params, path_jsons=path_jsons, idx=idx, seed_max=seed_max
         )
@@ -68,17 +68,17 @@ def run_param_configuration(
             params["src"],
             params["dst"],
             land=land,
-            penalty=params.get("penalty", 10),
-            travel_stw=params.get("travel_stw"),
-            travel_time=params.get("travel_time"),
-            K=params.get("K", 6),
-            L=params.get("L", 64),
+            penalty=params["penalty"],
+            travel_stw=params.get("travel_stw", None),
+            travel_time=params.get("travel_time", None),
+            K=params["K"],
+            L=params["L"],
             num_pieces=params.get("num_pieces", 1),
-            popsize=params.get("popsize", 2000),
-            sigma0=params.get("sigma0"),
-            tolfun=params.get("tolfun", 0.0001),
-            damping=params.get("damping", 1.0),
-            maxfevals=params.get("maxfevals", 50000),
+            popsize=params["popsize"],
+            sigma0=params["sigma0"],
+            tolfun=params["tolfun"],
+            damping=params["damping"],
+            maxfevals=params["maxfevals"],
         )
         if land(curve).any():
             print("The curve is on land")
@@ -93,11 +93,11 @@ def run_param_configuration(
             vectorfield,
             curve=curve,
             land=land,
-            travel_stw=params.get("travel_stw"),
-            travel_time=params.get("travel_time"),
-            tolfun=params.get("refiner_tolfun", 1e-6),
-            damping=params.get("refiner_damping", 0.9),
-            maxfevals=params.get("refiner_maxfevals", 50000),
+            travel_stw=params.get("travel_stw", None),
+            travel_time=params.get("travel_time", None),
+            tolfun=params["refiner_tolfun"],
+            damping=params["refiner_damping"],
+            maxfevals=params["refiner_maxfevals"],
             verbose=True,
         )
         # FMS returns an extra dimensions, we ignore that
