@@ -1,5 +1,6 @@
 import json
 from collections.abc import Callable
+from typing import Any
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
@@ -134,7 +135,7 @@ def plot_route_from_json(path_json: str) -> tuple[Figure, Axes]:
         Figure and Axes objects
     """
     with open(path_json) as file:
-        data: dict = json.load(file)
+        data: dict[str, Any] = json.load(file)
 
     # Get the data
     ls_curve = [jnp.array(data["curve_cmaes"]), jnp.array(data["curve_fms"])]

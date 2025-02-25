@@ -179,10 +179,10 @@ def land_avoidance(folder: str = "output"):
         plt.close(fig)
 
 
-def main():
+def main(folder: str = "output"):
     """Execute the necessary operations for generating paper plots."""
-    land_configurations()
-    land_avoidance()
+    land_configurations(fout=f"{folder}/land_configurations.png")
+    land_avoidance(folder=folder)
 
 
 if __name__ == "__main__":
