@@ -212,6 +212,18 @@ def build_dataframe(
         on=["vectorfield", "water_level", "resolution", "random_seed"],
         how="left",
     )
+
+    # Compare CMAES cost with best (percentage error)
+    df["percterr_cmaes"] = 100 * (df["cost_cmaes"] / df["cost_best"] - 1)
+    df["percterr_fms"] = 100 * (df["cost_fms"] / df["cost_best"] - 1)
+    # Set maximum percentual error to 100
+    df["percterr_cmaes"] = df["percterr_cmaes"].fillna(100).clip(upper=100)
+    df["percterr_fms"] = df["percterr_fms"].fillna(100).clip(upper=100)
+
+    # If the percentage error < 0.1% we assume the best solution was found
+    df["isoptimal_cmaes"] = df["percterr_cmaes"] <= 0.1
+    df["isoptimal_fms"] = df["percterr_fms"] <= 0.1
+
     if path_results:
         df.to_csv(path_results + "/results.csv", index=False, float_format="%.6f")
     return df
