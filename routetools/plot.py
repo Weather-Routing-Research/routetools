@@ -23,7 +23,7 @@ def plot_curve(
     land: Land | None = None,
     xlim: tuple[float, float] = (jnp.inf, -jnp.inf),
     ylim: tuple[float, float] = (jnp.inf, -jnp.inf),
-    figsize: tuple = (4, 4),
+    figsize: tuple[float, float] = (4, 4),
     cost: str = "cost",
     legend_outside: bool = False,
 ) -> tuple[Figure, Axes]:
