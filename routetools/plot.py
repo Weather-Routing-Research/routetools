@@ -4,7 +4,6 @@ from typing import Any
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.axes import Axes
@@ -116,7 +115,9 @@ def plot_curve(
     t = 0
     X, Y = jnp.meshgrid(xvf, yvf)
     U, V = vectorfield(X, Y, t)
-    ax.quiver(X, Y, U, V, zorder=1)
+    # Skip if all is 0
+    if not jnp.all(U == 0) or not jnp.all(V == 0):
+        ax.quiver(X, Y, U, V, zorder=1)
 
     if legend_outside:
         ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
@@ -214,6 +215,7 @@ def plot_table_aggregated(
     cmap: str = "coolwarm",
     colorbar_label: str = "",
     title: str = "",
+    figsize: tuple[float, float] = (12, 12),
 ) -> tuple[Figure, Axes]:
     """
     Plot a heatmap for a given metric with mean ± standard deviation.
@@ -244,6 +246,8 @@ def plot_table_aggregated(
         Label for the colorbar, default is an empty string.
     title : str, optional
         Title of the heatmap, default is an empty string.
+    figsize : tuple, optional
+        Size of the figure, default is (12, 12).
 
     Returns
     -------
@@ -266,8 +270,8 @@ def plot_table_aggregated(
 
     if agg == "mean":
         # Create pivot tables for mean and standard deviation
-        pivot_table_values = _create_pivot_table(np.nanmean)
-        pivot_table_std = _create_pivot_table(np.nanstd)
+        pivot_table_values = _create_pivot_table("mean")
+        pivot_table_std = _create_pivot_table("std")
 
         # Combine mean and std into a single pivot table for annotation
         pivot_table_annot = pivot_table_values.copy()
@@ -280,13 +284,13 @@ def plot_table_aggregated(
 
     elif agg == "sum":
         # Create pivot table for sum
-        pivot_table_values = _create_pivot_table(np.nansum)
+        pivot_table_values = _create_pivot_table("sum")
         pivot_table_annot = pivot_table_values.copy()
     else:
         raise ValueError(f"Invalid aggregation function: {agg}")
 
     # Plot heatmap
-    fig, ax = plt.subplots(figsize=(14, 12))
+    fig, ax = plt.subplots(figsize=figsize)
     sns.heatmap(
         pivot_table_values,
         annot=pivot_table_annot,
@@ -297,6 +301,7 @@ def plot_table_aggregated(
         cbar_kws={"label": colorbar_label},
         annot_kws={"ha": "center", "va": "center"},
         ax=ax,
+        cbar=False,
     )
 
     # Set labels and title
