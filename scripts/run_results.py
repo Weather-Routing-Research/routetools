@@ -227,7 +227,7 @@ def main(
     Parameters
     ----------
     max_workers : int, optional
-        Number of workers to use, by default 12
+        Number of workers to use, by default 16
     path_config : str, optional
         Path to the configuration file, by default "config.toml"
     path_results : str, optional
