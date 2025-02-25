@@ -308,4 +308,5 @@ def plot_table_aggregated(
     ax.set_xlabel(" - ".join(column_columns))
     ax.set_ylabel(" - ".join(index_columns))
     ax.set_title(title)
+    fig.tight_layout()
     return fig, ax
