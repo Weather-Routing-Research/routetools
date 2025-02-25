@@ -189,11 +189,15 @@ def build_dataframe(
     df["resolution"] = df["resolution"].fillna(-1)
     df["random_seed"] = df["random_seed"].fillna(-1)
 
-    # Extra columns:
+    # --------------------------------------------------------
+    # EXTRA COLUMNS
+    # --------------------------------------------------------
+
+    # Total computation time
     df["comp_time"] = df["comp_time_cmaes"] + df["comp_time_fms"]
 
     # FMS gains w.r.t. CMA-ES
-    df["fms_gain"] = 100 * ((df["cost_cmaes"] - df["cost_fms"]) / df["cost_cmaes"])
+    df["gain_fms"] = 100 * ((df["cost_cmaes"] - df["cost_fms"]) / df["cost_cmaes"])
 
     # Group by "water_level", "resolution" and "random_seed"
     # Get the lowest "cost_fms" for each group
