@@ -6,7 +6,9 @@ from routetools.land import Land
 from routetools.plot import plot_route_from_json, plot_table_aggregated
 
 
-def land_configurations(seed: int = 4, fout: str = "output/land_configurations.png"):
+def plot_land_configurations(
+    seed: int = 4, fout: str = "output/land_configurations.png"
+):
     """Generate a grid of land configurations.
 
     Parameters
@@ -61,7 +63,7 @@ def land_configurations(seed: int = 4, fout: str = "output/land_configurations.p
     fig.savefig(fout)
 
 
-def land_avoidance(folder: str = "output"):
+def plot_land_avoidance(folder: str = "output"):
     """
     Generate and save plots for land avoidance analysis based on simulation results.
 
@@ -148,17 +150,80 @@ def plot_parameter_search(folder: str = "output"):
         round_decimals=0,
         title=f"Number of optimal solutions (out of {n})",
         cmap="RdYlGn",
-        figsize=(8, 8),
+        figsize=(6, 6),
     )
     fig.savefig(f"{folder}/parameter_search_land_avoidance.png")
     plt.close(fig)
 
 
+def parameter_search_correlation(folder: str = "output"):
+    """Generate a LaTeX table with the correlation between loss and parameters.
+
+    Parameters
+    ----------
+    folder : str, optional
+        The directory containing the results CSV file, by default "output".
+    """
+    path_csv = f"{folder}/results.csv"
+    df = pd.read_csv(path_csv)
+
+    df_filtered = df[(df["vectorfield"] == "zero") & (df["water_level"] < 1.0)]
+
+    # Define columns of interest
+    cols_param = ["popsize", "sigma0", "K", "L"]
+    cols_target = ["percterr_cmaes", "comp_time_cmaes"]
+
+    # Compute correlation matrix
+    corr: pd.DataFrame = df_filtered[cols_param + cols_target].corr()
+    corr = corr.loc[cols_param, cols_target]
+
+    # LaTeX table template
+    latex_template = r"""
+    \begin{table}[htbp]
+    \caption{Pearson correlation coefficient (PCC) between the loss produced by 
+    CMA-ES (compared with the minimum distance), its computation time and the 
+    different parameters of this algorithm.}
+    \label{tab:correlation}
+    \begin{tabular}{lrr}
+    \textbf{Configuration Parameters} & \textbf{Loss} & \textbf{Compute time} \\
+    \toprule
+    Population size, P & $POPLOSS$ & $POPTIME$ \\
+    Standard deviation, $\sigma_0$ & $SIGMALOSS$ & $SIGMATIME$ \\
+    Control points, K & $KLOSS$ & $KTIME$ \\
+    Waypoints, L & $LLOSS$ & $LTIME$ \\ \bottomrule
+    \end{tabular}
+    \end{table}
+    """
+
+    # Replace placeholders with computed correlation values
+    replacements = {
+        "$POPLOSS$": f"{corr.loc['popsize', 'percterr_cmaes']:.3f}",
+        "$POPTIME$": f"{corr.loc['popsize', 'comp_time_cmaes']:.3f}",
+        "$SIGMALOSS$": f"{corr.loc['sigma0', 'percterr_cmaes']:.3f}",
+        "$SIGMATIME$": f"{corr.loc['sigma0', 'comp_time_cmaes']:.3f}",
+        "$KLOSS$": f"{corr.loc['K', 'percterr_cmaes']:.3f}",
+        "$KTIME$": f"{corr.loc['K', 'comp_time_cmaes']:.3f}",
+        "$LLOSS$": f"{corr.loc['L', 'percterr_cmaes']:.3f}",
+        "$LTIME$": f"{corr.loc['L', 'comp_time_cmaes']:.3f}",
+    }
+
+    for key, value in replacements.items():
+        latex_template = latex_template.replace(key, value)
+
+    # Save to a text file - keep the LaTeX format
+    filename = f"{folder}/parameter_search_correlation_table.tex"
+    with open(filename, "w") as file:
+        file.write(latex_template)
+
+    print(f"LaTeX table saved to {filename}")
+
+
 def main(folder: str = "output"):
     """Execute the necessary operations for generating paper plots."""
-    land_configurations(fout=f"{folder}/land_configurations.png")
-    land_avoidance(folder=folder)
+    plot_land_configurations(fout=f"{folder}/land_configurations.png")
+    plot_land_avoidance(folder=folder)
     plot_parameter_search(folder=folder)
+    parameter_search_correlation(folder=folder)
 
 
 if __name__ == "__main__":
