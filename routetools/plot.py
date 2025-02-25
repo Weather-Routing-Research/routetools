@@ -255,7 +255,7 @@ def plot_table_aggregated(
         Figure and Axes objects for the heatmap.
     """
 
-    def _create_pivot_table(aggfunc: Callable[[pd.Series], float]) -> pd.DataFrame:
+    def _create_pivot_table(aggfunc: str) -> pd.DataFrame:
         """Auxiliary function to create a pivot table with aggregated values."""
         return (
             df.pivot_table(
