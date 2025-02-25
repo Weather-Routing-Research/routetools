@@ -1,11 +1,9 @@
-import json
-
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 
 from routetools.land import Land
+from routetools.plot import plot_route_from_json, plot_table_aggregated
 
 
 def land_configurations(seed: int = 4, fout: str = "output/land_configurations.png"):
@@ -107,82 +105,59 @@ def land_avoidance(folder: str = "output"):
 
         # Load the JSON file for the identified example
         json_id = int(row["json"])
-        with open(f"{folder}/json/{json_id:04d}.json") as f:
-            d: dict = json.load(f)
 
         # Print what was the CMA-ES configuration
-        print(
-            f"Land avoidance {idx}:    "
-            f"Pop size: {d['popsize']} | Sigma: {d['sigma0']}"
-            f"| L: {d['L']} | K: {d['K']}"
-        )
-
-        # Set up the plot
-        fig, ax = plt.subplots(figsize=(4, 4))
-
-        # Plot the land
-        resolution = max(int(resolution), 1)
-        random_seed = max(int(random_seed), 0)
-        xlim = [-1, 6]
-        ylim = [-1, 6]
-        land = Land(
-            xlim=xlim,
-            ylim=ylim,
-            water_level=water_level,
-            resolution=resolution,
-            random_seed=random_seed,
-        )
-        ax.contourf(
-            land.x,
-            land.y,
-            land.array.T,
-            levels=[0, 0.5, 1],
-            colors=["white", "black", "black"],
-            origin="lower",
-            zorder=0,
-        )
-
-        # Plot the CMA-ES curve
-        curve_cmaes = np.array(d["curve_cmaes"])
-        ax.plot(
-            curve_cmaes[:, 0],
-            curve_cmaes[:, 1],
-            color="red",
-            zorder=1,
-            label=f"CMA-ES (dist = {d['cost_cmaes']:.2f})",
-        )
-
-        # Plot the FMS curve
-        curve_fms = np.array(d["curve_fms"])
-        ax.plot(
-            curve_fms[:, 0],
-            curve_fms[:, 1],
-            color="blue",
-            zorder=1,
-            label=f"FMS (dist = {d['cost_fms']:.2f})",
-        )
-
-        # Plot the source and destination
-        src = np.array(d["src"])
-        dst = np.array(d["dst"])
-        ax.scatter(*src, color="orange", zorder=2)
-        ax.scatter(*dst, color="orange", zorder=2)
-
-        # Set the title and save the plot
-        ax.set_title(
-            f"Water level: {water_level} | Resolution: {resolution} | "
-            f"Seed: {random_seed}"
-        )
-        ax.legend()
-        fig.tight_layout()
+        print(f"Land avoidance {idx}: {json_id}")
+        fig, ax = plot_route_from_json(f"{folder}/json/{json_id:06d}.json")
         fig.savefig(f"{folder}/land_avoidance_{idx}.png")
         plt.close(fig)
+
+
+def plot_parameter_search(folder: str = "output"):
+    """Plot the parameter search results as tables.
+
+    Parameters
+    ----------
+    folder : str, optional
+        The directory containing the results CSV file, by default "output".
+    """
+    path_csv = f"{folder}/results.csv"
+    df = pd.read_csv(path_csv)
+
+    # --- Land avoidance ---
+
+    # Filter the rows with no vectorfield and land avoidance
+    mask_novf = df["vectorfield"] == "zero"
+    mask_land = df["water_level"] < 1.0
+
+    # Study the effect of [popsize, L, K, sigma0] on the wrong
+    mask = mask_novf & mask_land
+    df_filtered = df[mask].copy()
+
+    # Count the unique combinations of the parameters
+    cols = ["popsize", "sigma0", "K", "L"]
+    n = int(df_filtered.groupby(cols).size().mean())
+
+    fig, ax = plot_table_aggregated(
+        df_filtered,
+        "isoptimal_fms",
+        ["popsize", "sigma0"],
+        ["K", "L"],
+        agg="sum",
+        vmin=n - 10,
+        vmax=n,
+        round_decimals=0,
+        title=f"Number of optimal solutions (out of {n})",
+    )
+    fig.savefig(f"{folder}/parameter_search_land_avoidance.png")
+    plt.close(fig)
 
 
 def main(folder: str = "output"):
     """Execute the necessary operations for generating paper plots."""
     land_configurations(fout=f"{folder}/land_configurations.png")
     land_avoidance(folder=folder)
+    plot_parameter_search(folder=folder)
 
 
 if __name__ == "__main__":

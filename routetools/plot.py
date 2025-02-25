@@ -23,6 +23,9 @@ def plot_curve(
     land: Land | None = None,
     xlim: tuple[float, float] = (jnp.inf, -jnp.inf),
     ylim: tuple[float, float] = (jnp.inf, -jnp.inf),
+    figsize: tuple = (4, 4),
+    cost: str = "cost",
+    legend_outside: bool = False,
 ) -> tuple[Figure, Axes]:
     """Plot the vectorfield and the curves.
 
@@ -46,6 +49,12 @@ def plot_curve(
         x limits, by default None
     ylim : tuple | None, optional
         y limits, by default None
+    figsize : tuple, optional
+        Figure size, by default (4, 4)
+    cost : str, optional
+        Cost function, by default "cost"
+    legend_outside : bool, optional
+        Place the legend outside the plot, by default False
 
     Returns
     -------
@@ -58,7 +67,7 @@ def plot_curve(
     if ls_cost is None:
         ls_cost = []
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=figsize)
     ax = plt.gca()
 
     # Plot the land
@@ -80,8 +89,8 @@ def plot_curve(
         if len(ls_name) == len(ls_curve):
             label = ls_name[idx]
         if len(ls_cost) == len(ls_curve):
-            cost = ls_cost[idx]
-            label += f" {cost:.3f}"
+            c = ls_cost[idx]
+            label += f" ({cost} = {c:.3f})"
         ax.plot(
             curve[:, 0], curve[:, 1], marker="o", markersize=2, label=label, zorder=2
         )
@@ -109,7 +118,10 @@ def plot_curve(
     U, V = vectorfield(X, Y, t)
     ax.quiver(X, Y, U, V, zorder=1)
 
-    ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    if legend_outside:
+        ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+    else:
+        ax.legend()
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     # Make sure the aspect ratio is correct
@@ -149,18 +161,29 @@ def plot_route_from_json(path_json: str) -> tuple[Figure, Axes]:
     )
     vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
 
-    # Get the land
+    # Load the land parameters
+    water_level = data["water_level"]
+    resolution = data.get("resolution", 0)
+    random_seed = data.get("random_seed", 0)
+
+    # Generate the land
     land = Land(
         xlim=data["xlim"],
         ylim=data["ylim"],
-        water_level=data["water_level"],
-        resolution=data.get("resolution", 0),
+        water_level=water_level,
+        resolution=resolution,
         interpolate=data.get("interpolate", 100),
         outbounds_is_land=data["outbounds_is_land"],
-        random_seed=data.get("random_seed", 0),
+        random_seed=random_seed,
     )
 
-    return plot_curve(
+    # Identify the cost function
+    if "travel_stw" in data:
+        cost = "dist" if data["vectorfield"] == "zero" else "time"
+    else:
+        cost = "fuel"
+
+    fig, ax = plot_curve(
         vectorfield,
         ls_curve,
         ls_name=ls_name,
@@ -168,7 +191,15 @@ def plot_route_from_json(path_json: str) -> tuple[Figure, Axes]:
         land=land,
         xlim=data["xlim"],
         ylim=data["ylim"],
+        cost=cost,
     )
+    # Set the title and tight layout
+    ax.set_title(
+        f"Water level: {water_level} | Resolution: {resolution} | "
+        f"Seed: {random_seed}"
+    )
+    fig.tight_layout()
+    return fig, ax
 
 
 def plot_table_aggregated(
