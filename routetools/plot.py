@@ -253,11 +253,6 @@ def plot_table_aggregated(
     else:
         raise ValueError(f"Invalid aggregation function: {agg}")
 
-    # Remove first column level if multi-indexed
-    if isinstance(pivot_table_annot.columns, pd.MultiIndex):
-        pivot_table_annot.columns = pivot_table_annot.columns.droplevel()
-        pivot_table_values.columns = pivot_table_values.columns.droplevel()
-
     # Plot heatmap
     fig, ax = plt.subplots(figsize=(14, 12))
     sns.heatmap(
