@@ -107,7 +107,6 @@ def land_avoidance(folder: str = "output"):
         json_id = int(row["json"])
 
         # Print what was the CMA-ES configuration
-        print(f"Land avoidance {idx}: {json_id}")
         fig, ax = plot_route_from_json(f"{folder}/json/{json_id:06d}.json")
         fig.savefig(f"{folder}/land_avoidance_{idx}.png")
         plt.close(fig)
@@ -144,10 +143,12 @@ def plot_parameter_search(folder: str = "output"):
         ["popsize", "sigma0"],
         ["K", "L"],
         agg="sum",
-        vmin=n - 10,
+        vmin=int(n * 0.75),
         vmax=n,
         round_decimals=0,
         title=f"Number of optimal solutions (out of {n})",
+        cmap="RdYlGn",
+        figsize=(8, 8),
     )
     fig.savefig(f"{folder}/parameter_search_land_avoidance.png")
     plt.close(fig)
