@@ -124,6 +124,7 @@ def plot_land_avoidance(folder: str = "output"):
 
         # Load the JSON file for the identified example
         json_id = int(row["json"])
+        print(f"Land avoidance: processing {json_id}...")
 
         # Print what was the CMA-ES configuration
         fig, ax = plot_route_from_json(f"{folder}/json/{json_id:06d}.json")
@@ -246,12 +247,43 @@ def parameter_search_correlation(folder: str = "output"):
         print(f"LaTeX table saved to {filename}")
 
 
+def plot_biggest_difference(folder: str = "output"):
+    """Generate plots for the examples with the biggest FMS savings.
+
+    Parameters
+    ----------
+    folder : str, optional
+        The directory containing the results CSV file and JSON files,
+        by default "output".
+    """
+    path_csv = f"{folder}/results.csv"
+    df = pd.read_csv(path_csv)
+
+    # Filter the rows with highest "gain_fms", grouped by vectorfield
+    df_filtered = (
+        df.groupby("vectorfield")
+        .apply(lambda x: x.nlargest(1, "gain_fms"))
+        .reset_index(drop=True)
+        .sort_values("gain_fms", ascending=False)
+    )
+
+    # Plot the top 5 examples
+    for idx in range(5):
+        row = df_filtered.iloc[idx]
+        json_id = int(row["json"])
+        print(f"Biggest FMS savings: processing {json_id}...")
+        fig, ax = plot_route_from_json(f"{folder}/json/{json_id:06d}.json")
+        fig.savefig(f"{folder}/biggest_difference_{idx}.png")
+        plt.close(fig)
+
+
 def main(folder: str = "output"):
     """Execute the necessary operations for generating paper plots."""
     plot_land_configurations(fout=f"{folder}/land_configurations.png")
     plot_land_avoidance(folder=folder)
     plot_parameter_search(folder=folder)
     parameter_search_correlation(folder=folder)
+    plot_biggest_difference(folder=folder)
 
 
 if __name__ == "__main__":
