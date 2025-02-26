@@ -193,6 +193,26 @@ def plot_parameter_search(folder: str = "output"):
     fig.savefig(f"{folder}/parameter_search_vectorfields.png")
     plt.close(fig)
 
+    # ---- Computation time ----
+
+    # Count the unique combinations of the parameters
+    cols = ["popsize", "sigma0", "K", "L"]
+    n = int(df.groupby(cols).size().mean())
+
+    fig, ax = plot_table_aggregated(
+        df,
+        "comp_time",
+        ["popsize", "sigma0"],
+        ["K", "L"],
+        agg="mean",
+        round_decimals=0,
+        title="Computation time (in seconds)",
+        cmap="RdYlGn_r",
+        figsize=(6, 6),
+    )
+    fig.savefig(f"{folder}/parameter_search_time.png")
+    plt.close(fig)
+
 
 def parameter_search_correlation(folder: str = "output"):
     """Generate a LaTeX table with the correlation between loss and parameters.
@@ -259,16 +279,19 @@ def plot_biggest_difference(folder: str = "output"):
     path_csv = f"{folder}/results.csv"
     df = pd.read_csv(path_csv)
 
+    mask = df["gain_fms"] < 10
+
     # Filter the rows with highest "gain_fms", grouped by vectorfield
     df_filtered = (
-        df.groupby("vectorfield")
-        .apply(lambda x: x.nlargest(1, "gain_fms"))
+        df[mask]
+        .groupby("vectorfield")
+        .apply(lambda x: x.nlargest(5, "gain_fms"))
         .reset_index(drop=True)
         .sort_values("gain_fms", ascending=False)
     )
 
-    # Plot the top 5 examples
-    for idx in range(5):
+    # Plot the top examples
+    for idx in range(20):
         row = df_filtered.iloc[idx]
         json_id = int(row["json"])
         print(f"Biggest FMS savings: processing {json_id}...")
