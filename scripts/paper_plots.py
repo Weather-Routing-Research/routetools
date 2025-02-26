@@ -267,6 +267,46 @@ def parameter_search_correlation(folder: str = "output"):
         print(f"LaTeX table saved to {filename}")
 
 
+def plot_best_no_land(folder: str = "output"):
+    """Generate plots for the best examples without land avoidance.
+
+    Parameters
+    ----------
+    folder : str, optional
+        The directory containing the results CSV file and JSON files,
+        by default "output".
+    """
+    path_csv = f"{folder}/results.csv"
+    df = pd.read_csv(path_csv)
+
+    mask = (
+        (df["water_level"] == 1.0)
+        & (df["L"] == 256)
+        & (df["K"] == 6)
+        & (df["popsize"] == 500)
+        & (df["sigma0"] == 1)
+    )
+
+    # Filter the rows with highest "gain_fms", grouped by vectorfield
+    df_filtered = (
+        df[mask]
+        .groupby("vectorfield")
+        .apply(lambda x: x.nlargest(1, "gain_fms"))
+        .reset_index(drop=True)
+        .sort_values("gain_fms", ascending=False)
+    )
+
+    # Plot the top examples
+    for idx in df_filtered.index:
+        row = df_filtered.iloc[idx]
+        vf = row["vectorfield"]
+        json_id = int(row["json"])
+        print(f"Best without land avoidance: processing {json_id}...")
+        fig, ax = plot_route_from_json(f"{folder}/json/{json_id:06d}.json")
+        fig.savefig(f"{folder}/best_{vf}.png")
+        plt.close(fig)
+
+
 def plot_biggest_difference(folder: str = "output"):
     """Generate plots for the examples with the biggest FMS savings.
 
@@ -279,24 +319,31 @@ def plot_biggest_difference(folder: str = "output"):
     path_csv = f"{folder}/results.csv"
     df = pd.read_csv(path_csv)
 
-    mask = df["gain_fms"] < 10
+    mask = (
+        (df["gain_fms"] < 10)
+        & (df["L"] == 256)
+        & (df["K"] == 6)
+        & (df["popsize"] == 500)
+        & (df["sigma0"] == 1)
+    )
 
     # Filter the rows with highest "gain_fms", grouped by vectorfield
     df_filtered = (
         df[mask]
         .groupby("vectorfield")
-        .apply(lambda x: x.nlargest(5, "gain_fms"))
+        .apply(lambda x: x.nlargest(2, "gain_fms"))
         .reset_index(drop=True)
         .sort_values("gain_fms", ascending=False)
     )
 
     # Plot the top examples
-    for idx in range(20):
+    for idx in df_filtered.index:
         row = df_filtered.iloc[idx]
         json_id = int(row["json"])
+        vf = row["vectorfield"]
         print(f"Biggest FMS savings: processing {json_id}...")
         fig, ax = plot_route_from_json(f"{folder}/json/{json_id:06d}.json")
-        fig.savefig(f"{folder}/biggest_difference_{idx}.png")
+        fig.savefig(f"{folder}/biggest_fms_{vf}_{idx}.png")
         plt.close(fig)
 
 
@@ -306,6 +353,7 @@ def main(folder: str = "output"):
     plot_land_avoidance(folder=folder)
     plot_parameter_search(folder=folder)
     parameter_search_correlation(folder=folder)
+    plot_best_no_land(folder=folder)
     plot_biggest_difference(folder=folder)
 
 

@@ -168,15 +168,18 @@ def plot_route_from_json(path_json: str) -> tuple[Figure, Axes]:
     random_seed = data.get("random_seed", 0)
 
     # Generate the land
-    land = Land(
-        xlim=data["xlim"],
-        ylim=data["ylim"],
-        water_level=water_level,
-        resolution=resolution,
-        interpolate=data.get("interpolate", 100),
-        outbounds_is_land=data["outbounds_is_land"],
-        random_seed=random_seed,
-    )
+    if resolution != 0:
+        land = Land(
+            xlim=data["xlim"],
+            ylim=data["ylim"],
+            water_level=water_level,
+            resolution=resolution,
+            interpolate=data.get("interpolate", 100),
+            outbounds_is_land=data["outbounds_is_land"],
+            random_seed=random_seed,
+        )
+    else:
+        land = None
 
     # Identify the cost function
     if "travel_stw" in data:
