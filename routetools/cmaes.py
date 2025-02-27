@@ -67,7 +67,7 @@ def control_to_curve(
     if num_pieces > 1:
         # Ensure that the number of control points is divisible by the number of pieces
         control_per_piece = (control.shape[1] - 1) / num_pieces
-        if control_per_piece < 3:
+        if control_per_piece < 2:
             raise ValueError(
                 "The number of control points - 1 must be at least 3 per piece. "
                 f"Got {control.shape[1]} control points and {num_pieces} pieces."
