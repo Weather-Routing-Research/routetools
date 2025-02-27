@@ -22,6 +22,34 @@ Waypoints, L & $LLOSS$ & $LTIME$ \\ \bottomrule
 \end{table}
 """
 
+LATEX_COMPUTATION_TIMES = r"""
+\begin{table*}[htbp]
+\centering
+\caption{Mean computation times for different land configurations.}
+\label{tab:computation_times}
+\begin{tabular}{lllrr}
+\textbf{Cost function} & \textbf{Time dependent} & \textbf{Water level}
+& \textbf{CMA-ES time (s)} & \textbf{FMS time (s)}\\
+\toprule
+Time & No & 1.0 & $10TNC$ & $10TNF$ \\
+& & 0.9 & $9TNC$ & $9TNF$ \\
+& & 0.8 & $8TNC$ & $8TNF$ \\
+& & 0.7 & $7TNC$ & $7TNF$ \\
+\midrule
+Time & Yes & 1.0 & $10TYC$ & $10TYF$ \\
+& & 0.9 & $9TYC$ & $9TYF$ \\
+& & 0.8 & $8TYC$ & $8TYF$ \\
+& & 0.7 & $7TYC$ & $7TYF$ \\
+\midrule
+Fuel & & 1.0 & $10FNC$ & $10FNF$ \\
+& & 0.9 & $9FNC$ & $9FNF$ \\
+& & 0.8 & $8FNC$ & $8FNF$ \\
+& & 0.7 & $7FNC$ & $7FNF$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+"""
+
 
 def plot_land_configurations(
     seed: int = 4, fout: str = "output/land_configurations.png"
@@ -214,7 +242,7 @@ def plot_parameter_search(folder: str = "output"):
     plt.close(fig)
 
 
-def parameter_search_correlation(folder: str = "output"):
+def table_parameter_search_correlation(folder: str = "output"):
     """Generate a LaTeX table with the correlation between loss and parameters.
 
     Parameters
@@ -320,7 +348,7 @@ def plot_biggest_difference(folder: str = "output"):
     df = pd.read_csv(path_csv)
 
     mask = (
-        (df["gain_fms"] < 10)
+        (df["gain_fms"] < 20)
         & (df["L"] == 256)
         & (df["K"] == 6)
         & (df["popsize"] == 500)
@@ -347,14 +375,71 @@ def plot_biggest_difference(folder: str = "output"):
         plt.close(fig)
 
 
+def table_computation_times(folder: str = "output"):
+    """Generate a LaTeX table with the computation times for different configurations.
+
+    Parameters
+    ----------
+    folder : str, optional
+        The directory containing the results CSV file, by default "output".
+    """
+    path_csv = f"{folder}/results.csv"
+    df = pd.read_csv(path_csv)
+
+    # Identify time dependent vector fields
+    df["time_dependent"] = df["vectorfield"] == "techy"
+    # Identify cost function via the input parameters
+    df["cost_function"] = df["travel_stw"].isna().replace({False: "time", True: "fuel"})
+
+    # Initialize dictionary for replacing placeholders
+    replacements = {}
+
+    for water_level in [1.0, 0.9, 0.8, 0.7]:
+        for cost_function in ["time", "fuel"]:
+            mask = (df["water_level"] == water_level) & (
+                df["cost_function"] == cost_function
+            )
+
+            df_filtered = df[mask]
+            mask_td = df_filtered["time_dependent"]
+
+            wl = int(water_level * 10)
+            cf = "T" if cost_function == "time" else "F"
+
+            # Compute mean computation time
+            df_nc = df_filtered.loc[~mask_td, "comp_time_cmaes"]
+            replacements[f"${wl}{cf}NC$"] = rf"{df_nc.mean():.0f} \pm {df_nc.std():.0f}"
+            df_yc = df_filtered.loc[mask_td, "comp_time_cmaes"]
+            replacements[f"${wl}{cf}YC$"] = rf"{df_yc.mean():.0f} \pm {df_yc.std():.0f}"
+            df_nf = df_filtered.loc[~mask_td, "comp_time_fms"]
+            replacements[f"${wl}{cf}NF$"] = rf"{df_nf.mean():.0f} \pm {df_nf.std():.0f}"
+            df_yf = df_filtered.loc[mask_td, "comp_time_fms"]
+            replacements[f"${wl}{cf}YF$"] = rf"{df_yf.mean():.0f} \pm {df_yf.std():.0f}"
+
+    # LaTeX table template
+    latex_template = LATEX_COMPUTATION_TIMES
+
+    # Replace placeholders with computed correlation values
+    for key, value in replacements.items():
+        latex_template = latex_template.replace(key, rf"${value}$")
+
+    # Save to a text file - keep the LaTeX format
+    filename = f"{folder}/computation_times.tex"
+    with open(filename, "w") as file:
+        file.write(latex_template)
+
+    print(f"LaTeX table saved to {filename}")
+
+
 def main(folder: str = "output"):
     """Execute the necessary operations for generating paper plots."""
     plot_land_configurations(fout=f"{folder}/land_configurations.png")
     plot_land_avoidance(folder=folder)
     plot_parameter_search(folder=folder)
-    parameter_search_correlation(folder=folder)
+    table_parameter_search_correlation(folder=folder)
     plot_best_no_land(folder=folder)
     plot_biggest_difference(folder=folder)
+    table_computation_times(folder=folder)
 
 
 if __name__ == "__main__":
