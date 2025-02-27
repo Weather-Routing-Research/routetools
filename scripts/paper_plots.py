@@ -23,13 +23,15 @@ Waypoints, L & $LLOSS$ & $LTIME$ \\ \bottomrule
 """
 
 LATEX_COMPUTATION_TIMES = r"""
-\begin{table*}[htbp]
+\begin{table}[htbp]
 \centering
 \caption{Mean computation times for different land configurations.}
 \label{tab:computation_times}
 \begin{tabular}{lllrr}
-\textbf{Cost function} & \textbf{Time dependent} & \textbf{Water level}
-& \textbf{CMA-ES time (s)} & \textbf{FMS time (s)}\\
+\textbf{Cost} & \textbf{Time} & \textbf{Water}
+& \textbf{CMA-ES} & \textbf{FMS}\\
+\textbf{function} & \textbf{dependent} & \textbf{level}
+& \textbf{time (s)} & \textbf{time (s)}\\
 \toprule
 Time & No & 1.0 & $10TNC$ & $10TNF$ \\
 & & 0.9 & $9TNC$ & $9TNF$ \\
@@ -47,7 +49,7 @@ Fuel & & 1.0 & $10FNC$ & $10FNF$ \\
 & & 0.7 & $7FNC$ & $7FNF$ \\
 \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 """
 
 
