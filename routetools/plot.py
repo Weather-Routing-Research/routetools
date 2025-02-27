@@ -198,10 +198,14 @@ def plot_route_from_json(path_json: str) -> tuple[Figure, Axes]:
         cost=cost,
     )
     # Set the title and tight layout
-    ax.set_title(
-        f"Water level: {water_level} | Resolution: {resolution} | "
-        f"Seed: {random_seed}"
-    )
+    if water_level == 1:
+        title = vfname
+    else:
+        title = (
+            f"Water level: {water_level} | Resolution: {resolution} | "
+            + f"Seed: {random_seed}"
+        )
+    ax.set_title(title)
     fig.tight_layout()
     return fig, ax
 
