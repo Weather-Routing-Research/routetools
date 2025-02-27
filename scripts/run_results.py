@@ -43,8 +43,8 @@ def run_param_configuration(
         params["xlim"],
         params["ylim"],
         water_level=params["water_level"],
-        resolution=params["resolution"],
-        random_seed=params["random_seed"],
+        resolution=params.get("resolution", 1),
+        random_seed=params.get("random_seed", 0),
         outbounds_is_land=params["outbounds_is_land"],
     )
 
@@ -131,8 +131,8 @@ def run_param_configuration(
 
     print("\n------------------------\n")
 
-    # Build dataframe and store every 100 iterations
-    if idx % 100 == 0:
+    # Build dataframe and store every 500 iterations
+    if (idx > 0) and (idx % 500 == 0):
         path_results = path_jsons.split("/")[0]
         build_dataframe(path_jsons, path_results=path_results)
 
