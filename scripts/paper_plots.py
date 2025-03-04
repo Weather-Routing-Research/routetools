@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.axes import Axes
-
 from routetools.land import Land
 from routetools.plot import plot_route_from_json, plot_table_aggregated
 
@@ -14,10 +13,11 @@ and the different parameters of this algorithm.}
 \begin{tabular}{lrr}
 \textbf{Configuration Parameters} & \textbf{PE} & \textbf{Compute time} \\
 \toprule
-Population size, P & $POPLOSS$ & $POPTIME$ \\
+Population size, $P$ & $POPLOSS$ & $POPTIME$ \\
 Standard deviation, $\sigma_0$ & $SIGMALOSS$ & $SIGMATIME$ \\
-Control points, K & $KLOSS$ & $KTIME$ \\
-Waypoints, L & $LLOSS$ & $LTIME$ \\ \bottomrule
+Control points, $K$ & $KLOSS$ & $KTIME$ \\
+Number of pieces, $W$ & $NPLOSS$ & $NPTIME$ \\
+Waypoints, $L$ & $LLOSS$ & $LTIME$ \\ \bottomrule
 \end{tabular}
 \end{table}
 """
@@ -269,7 +269,7 @@ def table_parameter_search_correlation(folder: str = "output"):
         df_filtered = df[mask]
 
         # Define columns of interest
-        cols_param = ["popsize", "sigma0", "K", "L"]
+        cols_param = ["popsize", "sigma0", "K", "num_pieces", "L"]
         cols_target = ["percterr_fms", "comp_time"]
 
         # Compute correlation matrix
@@ -287,8 +287,11 @@ def table_parameter_search_correlation(folder: str = "output"):
             "$SIGMATIME$": f"{corr.loc['sigma0', 'comp_time']:.3f}",
             "$KLOSS$": f"{corr.loc['K', 'percterr_fms']:.3f}",
             "$KTIME$": f"{corr.loc['K', 'comp_time']:.3f}",
+            "$NPLOSS$": f"{corr.loc['num_pieces', 'percterr_fms']:.3f}",
+            "$NPTIME$": f"{corr.loc['num_pieces', 'comp_time']:.3f}",
             "$LLOSS$": f"{corr.loc['L', 'percterr_fms']:.3f}",
             "$LTIME$": f"{corr.loc['L', 'comp_time']:.3f}",
+            "tab:correlation": f"tab:correlation-{name}".replace("_", "-"),
         }
 
         for key, value in replacements.items():
