@@ -285,7 +285,7 @@ def plot_table_aggregated(
         for col in pivot_table_annot.columns:
             pivot_table_annot[col] = (
                 pivot_table_values[col].astype(str)
-                + "\n ± "
+                + " ± "
                 + pivot_table_std[col].astype(str)
             )
 

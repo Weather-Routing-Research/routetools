@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.axes import Axes
-
 from routetools.land import Land
 from routetools.plot import plot_route_from_json, plot_table_aggregated
 
@@ -176,6 +175,16 @@ def plot_parameter_search(folder: str = "output"):
     path_csv = f"{folder}/results.csv"
     df = pd.read_csv(path_csv)
 
+    # Rename columns
+    df = df.rename(
+        columns={"popsize": "P", "num_pieces": "C"},
+        errors="ignore",
+    )
+
+    # Define the columns and rows for the tables
+    index_rows = ["P", "sigma0"]
+    index_columns = ["K", "L", "C"]
+
     # ---- Land avoidance ----
 
     mask = (df["vectorfield"] == "zero") & (df["water_level"] < 1.0)
@@ -184,14 +193,14 @@ def plot_parameter_search(folder: str = "output"):
     df_filtered = df[mask].copy()
 
     # Count the unique combinations of the parameters
-    cols = ["popsize", "sigma0", "K", "L"]
+    cols = index_columns + index_rows
     n = int(df_filtered.groupby(cols).size().mean())
 
     fig, ax = plot_table_aggregated(
         df_filtered,
         "isoptimal_fms",
-        ["popsize", "sigma0"],
-        ["K", "L"],
+        index_columns,
+        index_rows,
         agg="sum",
         round_decimals=0,
         title=f"Number of optimal solutions (out of {n})",
@@ -210,19 +219,18 @@ def plot_parameter_search(folder: str = "output"):
     df_filtered = df[mask].copy()
 
     # Count the unique combinations of the parameters
-    cols = ["popsize", "sigma0", "K", "L"]
     n = int(df_filtered.groupby(cols).size().mean())
 
     fig, ax = plot_table_aggregated(
         df_filtered,
         "percterr_fms",
-        ["popsize", "sigma0"],
-        ["K", "L"],
+        index_columns,
+        index_rows,
         agg="mean",
         round_decimals=0,
         title=f"Mean percentage error (out of {n} problem instances)",
         cmap="RdYlGn_r",
-        figsize=(6, 6),
+        figsize=(10, 6),
     )
     fig.savefig(f"{folder}/parameter_search_vectorfields.png")
     plt.close(fig)
@@ -231,19 +239,18 @@ def plot_parameter_search(folder: str = "output"):
     # ---- Computation time ----
 
     # Count the unique combinations of the parameters
-    cols = ["popsize", "sigma0", "K", "L"]
     n = int(df.groupby(cols).size().mean())
 
     fig, ax = plot_table_aggregated(
         df,
         "comp_time",
-        ["popsize", "sigma0"],
-        ["K", "L"],
+        index_columns,
+        index_rows,
         agg="mean",
         round_decimals=0,
         title="Computation time (in seconds)",
         cmap="RdYlGn_r",
-        figsize=(6, 6),
+        figsize=(10, 6),
     )
     fig.savefig(f"{folder}/parameter_search_time.png")
     plt.close(fig)
