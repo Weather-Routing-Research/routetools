@@ -302,7 +302,14 @@ def table_parameter_search_correlation(folder: str = "output"):
         print(f"LaTeX table saved to {filename}")
 
 
-def plot_best_no_land(folder: str = "output"):
+def plot_best_no_land(
+    folder: str = "output",
+    L: int = 256,
+    K: int = 6,
+    popsize: int = 500,
+    sigma0: int = 1,
+    num_pieces: int = 1,
+):
     """Generate plots for the best examples without land avoidance.
 
     Parameters
@@ -316,17 +323,18 @@ def plot_best_no_land(folder: str = "output"):
 
     mask = (
         (df["water_level"] == 1.0)
-        & (df["L"] == 256)
-        & (df["K"] == 6)
-        & (df["popsize"] == 500)
-        & (df["sigma0"] == 1)
+        & (df["L"] == L)
+        & (df["K"] == K)
+        & (df["popsize"] == popsize)
+        & (df["sigma0"] == sigma0)
+        & (df["num_pieces"] == num_pieces)
     )
 
     # Filter the rows with highest "gain_fms", grouped by vectorfield
     df_filtered = (
         df[mask]
-        .groupby("vectorfield")
-        .apply(lambda x: x.nlargest(1, "gain_fms"), include_groups=False)
+        .groupby("vectorfield")[["vectorfield", "json", "gain_fms"]]
+        .apply(lambda x: x.nlargest(1, "gain_fms"))
         .reset_index(drop=True)
         .sort_values("gain_fms", ascending=False)
     )
@@ -342,7 +350,14 @@ def plot_best_no_land(folder: str = "output"):
         plt.close(fig)
 
 
-def plot_biggest_difference(folder: str = "output"):
+def plot_biggest_difference(
+    folder: str = "output",
+    L: int = 256,
+    K: int = 6,
+    popsize: int = 500,
+    sigma0: int = 1,
+    num_pieces: int = 1,
+):
     """Generate plots for the examples with the biggest FMS savings.
 
     Parameters
@@ -356,17 +371,18 @@ def plot_biggest_difference(folder: str = "output"):
 
     mask = (
         (df["gain_fms"] < 20)
-        & (df["L"] == 256)
-        & (df["K"] == 6)
-        & (df["popsize"] == 500)
-        & (df["sigma0"] == 1)
+        & (df["L"] == L)
+        & (df["K"] == K)
+        & (df["popsize"] == popsize)
+        & (df["sigma0"] == sigma0)
+        & (df["num_pieces"] == num_pieces)
     )
 
     # Filter the rows with highest "gain_fms", grouped by vectorfield
     df_filtered = (
         df[mask]
-        .groupby("vectorfield")
-        .apply(lambda x: x.nlargest(2, "gain_fms"), include_groups=False)
+        .groupby("vectorfield")[["json", "vectorfield", "gain_fms"]]
+        .apply(lambda x: x.nlargest(2, "gain_fms"))
         .reset_index(drop=True)
         .sort_values("gain_fms", ascending=False)
     )
@@ -438,7 +454,14 @@ def table_computation_times(folder: str = "output"):
     print(f"LaTeX table saved to {filename}")
 
 
-def main(folder: str = "output"):
+def main(
+    folder: str = "output",
+    L: int = 301,
+    K: int = 7,
+    popsize: int = 500,
+    sigma0: int = 1,
+    num_pieces: int = 1,
+):
     """Execute the necessary operations for generating paper plots."""
     print("--- PLOT LAND CONFIGURATIONS ---")
     plot_land_configurations(fout=f"{folder}/land_configurations.png")
@@ -449,9 +472,13 @@ def main(folder: str = "output"):
     print("\n--- TABLE PARAMETER SEARCH CORRELATION ---")
     table_parameter_search_correlation(folder=folder)
     print("\n--- PLOT BEST NO LAND ---")
-    plot_best_no_land(folder=folder)
+    plot_best_no_land(
+        folder=folder, L=L, K=K, popsize=popsize, sigma0=sigma0, num_pieces=num_pieces
+    )
     print("\n--- PLOT BIGGEST DIFFERENCE ---")
-    plot_biggest_difference(folder=folder)
+    plot_biggest_difference(
+        folder=folder, L=L, K=K, popsize=popsize, sigma0=sigma0, num_pieces=num_pieces
+    )
     print("\n--- TABLE COMPUTATION TIMES ---")
     table_computation_times(folder=folder)
 
