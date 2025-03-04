@@ -442,17 +442,17 @@ def main(folder: str = "output"):
     """Execute the necessary operations for generating paper plots."""
     print("--- PLOT LAND CONFIGURATIONS ---")
     plot_land_configurations(fout=f"{folder}/land_configurations.png")
-    print("--- PLOT LAND AVOIDANCE ---")
+    print("\n--- PLOT LAND AVOIDANCE ---")
     plot_land_avoidance(folder=folder)
-    print("--- PLOT PARAMETER SEARCH ---")
+    print("\n--- PLOT PARAMETER SEARCH ---")
     plot_parameter_search(folder=folder)
-    print("--- TABLE PARAMETER SEARCH CORRELATION ---")
+    print("\n--- TABLE PARAMETER SEARCH CORRELATION ---")
     table_parameter_search_correlation(folder=folder)
-    print("--- PLOT BEST NO LAND ---")
+    print("\n--- PLOT BEST NO LAND ---")
     plot_best_no_land(folder=folder)
-    print("--- PLOT BIGGEST DIFFERENCE ---")
+    print("\n--- PLOT BIGGEST DIFFERENCE ---")
     plot_biggest_difference(folder=folder)
-    print("--- TABLE COMPUTATION TIMES ---")
+    print("\n--- TABLE COMPUTATION TIMES ---")
     table_computation_times(folder=folder)
 
 
