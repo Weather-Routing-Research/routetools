@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.axes import Axes
-
 from routetools.land import Land
 from routetools.plot import plot_route_from_json, plot_table_aggregated
 
@@ -108,6 +107,8 @@ def plot_land_configurations(
     # Adjust layout and show the plot
     fig.tight_layout()
     fig.savefig(fout)
+    plt.close(fig)
+    print(f"Land configurations saved to {fout}")
 
 
 def plot_land_avoidance(folder: str = "output"):
@@ -197,6 +198,7 @@ def plot_parameter_search(folder: str = "output"):
     )
     fig.savefig(f"{folder}/parameter_search_land_avoidance.png")
     plt.close(fig)
+    print(f"Land avoidance table saved to {folder}/parameter_search_land_avoidance.png")
 
     # ---- Vectorfields ----
 
@@ -222,6 +224,7 @@ def plot_parameter_search(folder: str = "output"):
     )
     fig.savefig(f"{folder}/parameter_search_vectorfields.png")
     plt.close(fig)
+    print(f"Vectorfields table saved to {folder}/parameter_search_vectorfields.png")
 
     # ---- Computation time ----
 
@@ -242,6 +245,7 @@ def plot_parameter_search(folder: str = "output"):
     )
     fig.savefig(f"{folder}/parameter_search_time.png")
     plt.close(fig)
+    print(f"Computation time table saved to {folder}/parameter_search_time.png")
 
 
 def table_parameter_search_correlation(folder: str = "output"):
@@ -321,7 +325,7 @@ def plot_best_no_land(folder: str = "output"):
     df_filtered = (
         df[mask]
         .groupby("vectorfield")
-        .apply(lambda x: x.nlargest(1, "gain_fms"))
+        .apply(lambda x: x.nlargest(1, "gain_fms"), include_groups=False)
         .reset_index(drop=True)
         .sort_values("gain_fms", ascending=False)
     )
@@ -361,7 +365,7 @@ def plot_biggest_difference(folder: str = "output"):
     df_filtered = (
         df[mask]
         .groupby("vectorfield")
-        .apply(lambda x: x.nlargest(2, "gain_fms"))
+        .apply(lambda x: x.nlargest(2, "gain_fms"), include_groups=False)
         .reset_index(drop=True)
         .sort_values("gain_fms", ascending=False)
     )
@@ -435,12 +439,19 @@ def table_computation_times(folder: str = "output"):
 
 def main(folder: str = "output"):
     """Execute the necessary operations for generating paper plots."""
+    print("--- PLOT LAND CONFIGURATIONS ---")
     plot_land_configurations(fout=f"{folder}/land_configurations.png")
+    print("--- PLOT LAND AVOIDANCE ---")
     plot_land_avoidance(folder=folder)
+    print("--- PLOT PARAMETER SEARCH ---")
     plot_parameter_search(folder=folder)
+    print("--- TABLE PARAMETER SEARCH CORRELATION ---")
     table_parameter_search_correlation(folder=folder)
+    print("--- PLOT BEST NO LAND ---")
     plot_best_no_land(folder=folder)
+    print("--- PLOT BIGGEST DIFFERENCE ---")
     plot_biggest_difference(folder=folder)
+    print("--- TABLE COMPUTATION TIMES ---")
     table_computation_times(folder=folder)
 
 
