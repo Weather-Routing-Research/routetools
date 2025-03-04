@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.axes import Axes
+
 from routetools.land import Land
 from routetools.plot import plot_route_from_json, plot_table_aggregated
 
