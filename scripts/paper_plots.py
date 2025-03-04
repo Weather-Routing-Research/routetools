@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.axes import Axes
+
 from routetools.land import Land
 from routetools.plot import plot_route_from_json, plot_table_aggregated
 
@@ -16,7 +17,7 @@ and the different parameters of this algorithm.}
 Population size, $P$ & $POPLOSS$ & $POPTIME$ \\
 Standard deviation, $\sigma_0$ & $SIGMALOSS$ & $SIGMATIME$ \\
 Control points, $K$ & $KLOSS$ & $KTIME$ \\
-Number of pieces, $W$ & $NPLOSS$ & $NPTIME$ \\
+Number of pieces, $C$ & $NPLOSS$ & $NPTIME$ \\
 Waypoints, $L$ & $LLOSS$ & $LTIME$ \\ \bottomrule
 \end{tabular}
 \end{table}
