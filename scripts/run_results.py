@@ -260,15 +260,22 @@ def main(
     path_jsons = path_results + "/json"
     os.makedirs(path_jsons, exist_ok=True)
 
+    # Wrap the function in a try-except block to catch any error
+    def run_param_configuration_try(*args, **kwargs):
+        try:
+            run_param_configuration(*args, **kwargs)
+        except Exception as e:
+            print(f"Error: {e}")
+
     if max_workers == 1:
         for idx, params in enumerate(ls_params):
-            run_param_configuration(params, path_jsons, idx, seed_max)
+            run_param_configuration_try(params, path_jsons, idx, seed_max)
     else:
         # Use ThreadPoolExecutor to parallelize the execution
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             for idx, params in enumerate(ls_params):
                 executor.submit(
-                    run_param_configuration, params, path_jsons, idx, seed_max
+                    run_param_configuration_try, params, path_jsons, idx, seed_max
                 )
 
     # Build the dataframe
