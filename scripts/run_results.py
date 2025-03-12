@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 import jax.numpy as jnp
 import pandas as pd
@@ -14,7 +14,7 @@ from routetools.land import Land
 
 
 def run_param_configuration(
-    params: dict, path_jsons: str = "json", idx: int = 0, seed_max: int = 0
+    params: dict, path_jsons: str = "json", idx: int = 0, seed_max: int = 1
 ) -> dict:
     """Run the optimization algorithm with the given parameters.
 
@@ -27,7 +27,7 @@ def run_param_configuration(
     idx : int, optional
         JSON number, by default 0
     seed_max : int, optional
-        Maximum seed value, by default 0
+        Maximum seed value, by default 1
     """
     # Make a copy to not replace original
     params = params.copy()
@@ -37,7 +37,7 @@ def run_param_configuration(
     if os.path.exists(path_json):
         return
 
-    print(f"Running configuration {idx}...")
+    print(f"{idx}: Running configuration...")
 
     land = Land(
         params["xlim"],
@@ -50,7 +50,7 @@ def run_param_configuration(
 
     # Is source or destination on land?
     if land(params["src"]) or land(params["dst"]):
-        print("Source or destination is on land. We will try another seed.")
+        print("{idx}: Source or destination is on land. We will try another seed.")
         # If this happens, we increase the seed and try again
         params["random_seed"] = int(params["random_seed"] + seed_max)
         return run_param_configuration(
@@ -79,9 +79,10 @@ def run_param_configuration(
             tolfun=params["tolfun"],
             damping=params["damping"],
             maxfevals=params["maxfevals"],
+            verbose=False,
         )
         if land(curve).any():
-            print("The curve is on land")
+            print("{idx}: CMA-ES curve is on land")
             cost = jnp.inf
 
         comp_time = time.time() - start
@@ -98,12 +99,12 @@ def run_param_configuration(
             tolfun=params["refiner_tolfun"],
             damping=params["refiner_damping"],
             maxfevals=params["refiner_maxfevals"],
-            verbose=True,
+            verbose=False,
         )
         # FMS returns an extra dimensions, we ignore that
         curve_fms, cost_fms = curve_fms[0], cost_fms[0]
         if land(curve_fms).any():
-            print("The curve is on land")
+            print("{idx}: FMS curve is on land")
             cost_fms = jnp.inf
 
         comp_time_fms = time.time() - start
@@ -129,7 +130,7 @@ def run_param_configuration(
     with open(path_json, "w") as f:
         json.dump(results, f, indent=4)
 
-    print("\n------------------------\n")
+    print(f"{idx}: Done!\n------------------")
 
     # Build dataframe and store every 500 iterations
     if (idx > 0) and (idx % 500 == 0):
@@ -233,17 +234,11 @@ def build_dataframe(
     return df
 
 
-def main(
-    max_workers: int = 12,
-    path_config: str = "config.toml",
-    path_results: str = "output",
-):
+def main(path_config: str = "config.toml", path_results: str = "output"):
     """Run the results.
 
     Parameters
     ----------
-    max_workers : int, optional
-        Number of workers to use, by default 16
     path_config : str, optional
         Path to the configuration file, by default "config.toml"
     path_results : str, optional
@@ -253,7 +248,7 @@ def main(
     ls_params = list_config_combinations(path_config)
 
     # Get the highest seed
-    seed_max = max([params.get("random_seed", 0) for params in ls_params] + [1])
+    seed_max = max([params.get("random_seed", 1) for params in ls_params] + [1])
 
     # Ensure the output folder exists
     os.makedirs(path_results, exist_ok=True)
@@ -261,23 +256,15 @@ def main(
     os.makedirs(path_jsons, exist_ok=True)
 
     # Wrap the function in a try-except block to catch any error
-    def run_param_configuration_try(*args, **kwargs):
+    def run_param_configuration_try(params: dict[str, Any], idx: int):
         try:
-            run_param_configuration(*args, **kwargs)
+            run_param_configuration(params, path_jsons, idx, seed_max)
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"{idx}: Error! {e}\n------------------")
 
-    if max_workers == 1:
-        for idx, params in enumerate(ls_params):
-            run_param_configuration_try(params, path_jsons, idx, seed_max)
-    else:
-        # Use ThreadPoolExecutor to parallelize the execution
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for idx, params in enumerate(ls_params):
-                executor.submit(
-                    run_param_configuration_try, params, path_jsons, idx, seed_max
-                )
-
+    # We cannot multiprocess with JAX, because JAX uses a threadpool
+    for idx, params in enumerate(ls_params):
+        run_param_configuration_try(params, idx)
     # Build the dataframe
     build_dataframe(path_jsons, path_results=path_results)
 
