@@ -234,7 +234,7 @@ def build_dataframe(
 
 
 def main(
-    max_workers: int = 16,
+    max_workers: int = 12,
     path_config: str = "config.toml",
     path_results: str = "output",
 ):

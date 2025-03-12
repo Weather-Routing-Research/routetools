@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.axes import Axes
+
 from routetools.land import Land
 from routetools.plot import plot_route_from_json, plot_table_aggregated
 
@@ -474,6 +475,9 @@ def main(
     num_pieces: int = 1,
 ):
     """Execute the necessary operations for generating paper plots."""
+    path_csv = f"{folder}/results.csv"
+    df = pd.read_csv(path_csv)
+    print(f"Number of rows in the CSV file: {len(df)}\n")
     print("--- PLOT LAND CONFIGURATIONS ---")
     plot_land_configurations(fout=f"{folder}/land_configurations.png")
     print("\n--- PLOT LAND AVOIDANCE ---")
