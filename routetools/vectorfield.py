@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Any
 
 import jax.numpy as jnp
 from jax import jit
@@ -180,3 +181,42 @@ def vectorfield_zero(
 ) -> tuple[jnp.ndarray, jnp.ndarray]:
     """No currents."""
     return jnp.zeros_like(x), jnp.zeros_like(y)
+
+
+def load_vectorfield_function(params: dict[str, Any]) -> None:
+    """Load the vectorfield function from the parameters.
+
+    Parameters
+    ----------
+    params : dict
+        Parameters from the configuration file.
+
+    Returns
+    -------
+    Callable
+        Vectorfield function.
+    """
+    # Extract the vectorfield name
+    vfname = params["vectorfield"]
+
+    # Load the vectorfield function
+    vectorfield_module = __import__(
+        "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
+    )
+    vffun = getattr(vectorfield_module, "vectorfield_" + vfname)
+
+    # We are going to build a vectorfield function using only the
+    # arguments required by the vffun
+    vfparams_extra = {
+        k: v for k, v in params.items() if k in vffun.__wrapped__.__code__.co_varnames
+    }  # type: ignore[attr-defined]
+
+    def vectorfield(vffun=vffun, vfparams_extra=vfparams_extra):  # type: ignore[no-untyped-def]
+        @jit
+        def inner(x: jnp.ndarray, y: jnp.ndarray, t: jnp.ndarray) -> jnp.ndarray:
+            return vffun(x, y, t, **vfparams_extra)  # type: ignore[no-any-return]
+
+        inner.is_time_variant = vffun.is_time_variant  # type: ignore[attr-defined]
+        return inner
+
+    return vectorfield()  # type: ignore[no-untyped-call]

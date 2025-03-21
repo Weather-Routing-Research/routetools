@@ -10,6 +10,7 @@ from routetools.config import list_config_combinations
 from routetools.fms import optimize_fms
 from routetools.land import Land
 from routetools.plot import plot_curve
+from routetools.vectorfield import load_vectorfield_function
 
 
 def run_param_configuration(
@@ -53,7 +54,7 @@ def run_param_configuration(
 
     # Vectorfield
     vfname = params["vectorfield"]
-    vectorfield = params["vectorfield_fun"]
+    vectorfield = load_vectorfield_function(params)
     penalty_init = params.get("penalty_init", 0)
     penalty_increment = params.get("penalty_increment", 1)
 
@@ -159,8 +160,6 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
 
     # Save the results to a csv file using pandas
     df = pd.DataFrame(results)
-    # Remove some columns
-    df = df.drop(columns=["vectorfield_fun"])
     df.to_csv(path_results + "/results_penalty.csv", index=False, float_format="%.6f")
 
 

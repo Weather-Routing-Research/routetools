@@ -3,18 +3,6 @@ import tomllib
 from typing import Any
 
 import jax.numpy as jnp
-from jax import jit
-
-# These keys are not used in the vectorfield function
-LS_VF_IGNORE = [
-    "src",
-    "dst",
-    "xlim",
-    "ylim",
-    "travel_stw",
-    "travel_time",
-    "vectorfield",
-]
 
 
 def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
@@ -68,26 +56,8 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
         # Convert src and dst to jnp.array
         vfparams["src"] = jnp.array(vfparams["src"])
         vfparams["dst"] = jnp.array(vfparams["dst"])
-        # Load the vectorfield function
-        vectorfield_module = __import__(
-            "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
-        )
-        vffun = getattr(vectorfield_module, "vectorfield_" + vfname)
 
-        # We are going to build a vectorfield function using the
-        # extra arguments that are not in LS_VF_IGNORE
-        vfparams_extra = {k: v for k, v in vfparams.items() if k not in LS_VF_IGNORE}
-
-        def vectorfield(vffun=vffun, vfparams_extra=vfparams_extra):  # type: ignore[no-untyped-def]
-            @jit
-            def inner(x: jnp.ndarray, y: jnp.ndarray, t: jnp.ndarray) -> jnp.ndarray:
-                return vffun(x, y, t, **vfparams_extra)  # type: ignore[no-any-return]
-
-            inner.is_time_variant = vffun.is_time_variant  # type: ignore[attr-defined]
-            return inner
-
-        vfparams["vectorfield_fun"] = vectorfield()  # type: ignore[no-untyped-call]
-
+        # Include to the list
         ls_vfparams.append(vfparams)
 
     # Finally, do the same for the land

@@ -11,6 +11,7 @@ from routetools.cmaes import optimize
 from routetools.config import list_config_combinations
 from routetools.fms import optimize_fms
 from routetools.land import Land
+from routetools.vectorfield import load_vectorfield_function
 
 
 def run_param_configuration(
@@ -58,7 +59,7 @@ def run_param_configuration(
         )
     else:
         # Vectorfield
-        vectorfield = params["vectorfield_fun"]
+        vectorfield = load_vectorfield_function(params)
 
         # CMA-ES optimization algorithm
         start = time.time()
@@ -120,8 +121,6 @@ def run_param_configuration(
             "curve_fms": curve_fms,
         }
 
-    # Pop the vectorfield function
-    results.pop("vectorfield_fun", None)
     # Any array contained in the dictionary is turned into a list
     for key, value in results.items():
         if isinstance(value, jnp.ndarray):
@@ -259,6 +258,8 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
     def run_param_configuration_try(params: dict[str, Any], idx: int):
         try:
             run_param_configuration(params, path_jsons, idx, seed_max)
+            # Throttle the optimization loop
+            time.sleep(0.1)
         except Exception as e:
             print(f"{idx}: Error! {e}\n------------------")
 
