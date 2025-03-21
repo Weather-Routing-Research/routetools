@@ -183,7 +183,7 @@ def vectorfield_zero(
     return jnp.zeros_like(x), jnp.zeros_like(y)
 
 
-def load_vectorfield_function(params: dict[str, Any]) -> None:
+def load_vectorfield_function(params: dict[str, Any]) -> Any:
     """Load the vectorfield function from the parameters.
 
     Parameters
@@ -209,7 +209,7 @@ def load_vectorfield_function(params: dict[str, Any]) -> None:
     # arguments required by the vffun
     vfparams_extra = {
         k: v for k, v in params.items() if k in vffun.__wrapped__.__code__.co_varnames
-    }  # type: ignore[attr-defined]
+    }
 
     def vectorfield(vffun=vffun, vfparams_extra=vfparams_extra):  # type: ignore[no-untyped-def]
         @jit
