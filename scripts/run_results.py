@@ -1,10 +1,14 @@
 import json
+import logging
 import os
+import shutil
 import time
 from typing import Any
 
+import jax
 import jax.numpy as jnp
 import pandas as pd
+import psutil
 import typer
 
 from routetools.cmaes import optimize
@@ -13,10 +17,49 @@ from routetools.fms import optimize_fms
 from routetools.land import Land
 from routetools.vectorfield import load_vectorfield_function
 
+# ---------------------------------------------------------------------------
+# Setup logging
+# ---------------------------------------------------------------------------
+# This will log INFO-level messages to both console and the file "system_stats.log"
+logging.basicConfig(
+    filename="system_stats.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+# Also log INFO to stdout
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+console_handler.setFormatter(console_formatter)
+logger.addHandler(console_handler)
+
+
+def log_system_info():
+    """Log CPU usage, memory usage, and disk usage."""
+    # CPU usage
+    cpu_percent = psutil.cpu_percent(interval=0.1)
+    cpu_freq = psutil.cpu_freq()
+    # Memory usage
+    process = psutil.Process(os.getpid())
+    mem_info = process.memory_info()
+    # Disk usage
+    total, used, free = shutil.disk_usage("/")  # returns exactly 3 values
+    percent = used / total * 100.0  # compute usage % manually
+
+    logger.info("--- System Resources ---")
+    logger.info(f"CPU Usage: {cpu_percent:.1f}% (freq: {cpu_freq.current:.0f} MHz)")
+    logger.info(f"Memory Usage (RSS): {mem_info.rss / (1024**3):.2f} GB")
+    logger.info(
+        f"Disk Usage: {used/(1024**3):.2f} GB / {total/(1024**3):.2f} GB "
+        f"({percent:.2f}% used)"
+    )
+    logger.info("----------------------------------------")
+
 
 def run_param_configuration(
     params: dict, path_jsons: str = "json", idx: int = 0, seed_max: int = 1
-) -> dict:
+) -> None:
     """Run the optimization algorithm with the given parameters.
 
     Parameters
@@ -38,7 +81,7 @@ def run_param_configuration(
     if os.path.exists(path_json):
         return
 
-    print(f"{idx}: Running configuration...")
+    logger.info(f"{idx}: Running configuration...")
 
     land = Land(
         params["xlim"],
@@ -51,12 +94,15 @@ def run_param_configuration(
 
     # Is source or destination on land?
     if land(params["src"]) or land(params["dst"]):
-        print("{idx}: Source or destination is on land. We will try another seed.")
+        logger.info(
+            f"{idx}: Source or destination is on land. We will try another seed."
+        )
         # If this happens, we increase the seed and try again
         params["random_seed"] = int(params["random_seed"] + seed_max)
-        return run_param_configuration(
+        run_param_configuration(
             params, path_jsons=path_jsons, idx=idx, seed_max=seed_max
         )
+        return
     else:
         # Vectorfield
         vectorfield = load_vectorfield_function(params)
@@ -83,7 +129,7 @@ def run_param_configuration(
             verbose=False,
         )
         if land(curve).any():
-            print("{idx}: CMA-ES curve is on land")
+            logger.info(f"{idx}: CMA-ES curve is on land")
             cost = jnp.inf
 
         comp_time = time.time() - start
@@ -102,10 +148,10 @@ def run_param_configuration(
             maxfevals=params["refiner_maxfevals"],
             verbose=False,
         )
-        # FMS returns an extra dimensions, we ignore that
+        # FMS returns an extra dimension, we ignore that
         curve_fms, cost_fms = curve_fms[0], cost_fms[0]
         if land(curve_fms).any():
-            print("{idx}: FMS curve is on land")
+            logger.info(f"{idx}: FMS curve is on land")
             cost_fms = jnp.inf
 
         comp_time_fms = time.time() - start
@@ -128,13 +174,22 @@ def run_param_configuration(
     # Save the results in a JSON file
     with open(path_json, "w") as f:
         json.dump(results, f, indent=4)
+    # Delete the results variable to free up memory
+    del results
 
-    print(f"{idx}: Done!\n------------------")
+    logger.info(f"{idx}: Done!")
+    logger.info("------------------")
 
     # Build dataframe and store every 500 iterations
     if (idx > 0) and (idx % 500 == 0):
         path_results = path_jsons.split("/")[0]
         build_dataframe(path_jsons, path_results=path_results)
+
+    # Clear the cache to free up memory
+    jax.clear_caches()
+
+    # Output system information
+    log_system_info()
 
 
 def build_dataframe(
@@ -259,13 +314,15 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
         try:
             run_param_configuration(params, path_jsons, idx, seed_max)
             # Throttle the optimization loop
-            time.sleep(0.1)
+            # time.sleep(0.1)
         except Exception as e:
-            print(f"{idx}: Error! {e}\n------------------")
+            logger.error(f"{idx}: Error! {e}")
+            logger.error("------------------")
 
     # We cannot multiprocess with JAX, because JAX uses a threadpool
     for idx, params in enumerate(ls_params):
         run_param_configuration_try(params, idx)
+
     # Build the dataframe
     build_dataframe(path_jsons, path_results=path_results)
 
