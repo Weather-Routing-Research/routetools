@@ -1,3 +1,4 @@
+import gc
 import json
 import logging
 import os
@@ -73,8 +74,6 @@ def run_param_configuration(
     seed_max : int, optional
         Maximum seed value, by default 1
     """
-    # Make a copy to not replace original
-    params = params.copy()
     # Path to the JSON file
     path_json = f"{path_jsons}/{idx:06d}.json"
     # If the file already exists, skip
@@ -116,8 +115,8 @@ def run_param_configuration(
             params["dst"],
             land=land,
             penalty=params["penalty"],
-            travel_stw=params.get("travel_stw", None),
-            travel_time=params.get("travel_time", None),
+            travel_stw=params.get("travel_stw"),
+            travel_time=params.get("travel_time"),
             K=params["K"],
             L=params["L"],
             num_pieces=params.get("num_pieces", 1),
@@ -141,8 +140,8 @@ def run_param_configuration(
             vectorfield,
             curve=curve,
             land=land,
-            travel_stw=params.get("travel_stw", None),
-            travel_time=params.get("travel_time", None),
+            travel_stw=params.get("travel_stw"),
+            travel_time=params.get("travel_time"),
             tolfun=params["refiner_tolfun"],
             damping=params["refiner_damping"],
             maxfevals=params["refiner_maxfevals"],
@@ -174,12 +173,16 @@ def run_param_configuration(
     # Save the results in a JSON file
     with open(path_json, "w") as f:
         json.dump(results, f, indent=4)
-    # Delete the results variable to free up memory
-    del results
 
     logger.info(f"{idx}: Done!")
     logger.info("------------------")
 
+    # Delete the results variable to free up memory
+    results.clear()
+    del results
+    # Force garbage collection to free up memory
+    # This is important to avoid memory leaks
+    gc.collect()
     # Clear the cache to free up memory
     jax.clear_caches()
 

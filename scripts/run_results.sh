@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Run in chunks of 50
-BATCH_SIZE=50
+# Run in chunks of 10
+BATCH_SIZE=10
 
 # Total parameter combos
 TOTAL=81000
