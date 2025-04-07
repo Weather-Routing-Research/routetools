@@ -82,4 +82,10 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
         for optparams in ls_optparams
         for refparams in ls_refparams
     ]
+
+    # Sort the list of dictionaries by the keys that will
+    # influence the size of JAX arrays
+    # This is important for the GPU memory allocation
+    ls_sort = ["num_pieces", "K", "L", "popsize"]
+    ls_params.sort(key=lambda x: [x[k] for k in ls_sort], reverse=True)
     return ls_params
