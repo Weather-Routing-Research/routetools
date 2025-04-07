@@ -161,16 +161,16 @@ def run_param_configuration(
             **params,
             "cost_cmaes": cost,
             "comp_time_cmaes": comp_time,
-            "cost_fms": cost_fms,
+            "cost_fms": cost_fms.tolist(),
             "comp_time_fms": comp_time_fms,
-            "curve_cmaes": curve,
-            "curve_fms": curve_fms,
+            "curve_cmaes": curve.tolist(),
+            "curve_fms": curve_fms.tolist(),
         }
+        
+        # src and dst are jnp arrays, convert them to lists
+        results["src"] = params["src"].tolist()
+        results["dst"] = params["dst"].tolist()
 
-    # Any array contained in the dictionary is turned into a list
-    for key, value in results.items():
-        if isinstance(value, jnp.ndarray):
-            results[key] = value.tolist()
     # Save the results in a JSON file
     with open(path_json, "w") as f:
         json.dump(results, f, indent=4)
