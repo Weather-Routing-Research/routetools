@@ -166,7 +166,7 @@ def run_param_configuration(
             "curve_cmaes": curve.tolist(),
             "curve_fms": curve_fms.tolist(),
         }
-        
+
         # src and dst are jnp arrays, convert them to lists
         results["src"] = params["src"].tolist()
         results["dst"] = params["dst"].tolist()
