@@ -180,11 +180,6 @@ def run_param_configuration(
     logger.info(f"{idx}: Done!")
     logger.info("------------------")
 
-    # Build dataframe and store every 500 iterations
-    if (idx > 0) and (idx % 500 == 0):
-        path_results = path_jsons.split("/")[0]
-        build_dataframe(path_jsons, path_results=path_results)
-
     # Clear the cache to free up memory
     jax.clear_caches()
 
@@ -288,7 +283,12 @@ def build_dataframe(
     return df
 
 
-def main(path_config: str = "config.toml", path_results: str = "output"):
+def main(
+    path_config: str = "config.toml",
+    path_results: str = "output",
+    batch_start: int = 0,
+    batch_end: int = -1,
+):
     """Run the results.
 
     Parameters
@@ -301,8 +301,15 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
     # Generate the list of parameters
     ls_params = list_config_combinations(path_config)
 
+    # If batch_end is -1, interpret it as "run until the end"
+    if batch_end == -1:
+        batch_end = len(ls_params)
+
+    # Slice the parameters
+    subset_params = ls_params[batch_start:batch_end]
+
     # Get the highest seed
-    seed_max = max([params.get("random_seed", 1) for params in ls_params] + [1])
+    seed_max = max([params.get("random_seed", 1) for params in subset_params] + [1])
 
     # Ensure the output folder exists
     os.makedirs(path_results, exist_ok=True)
@@ -320,10 +327,10 @@ def main(path_config: str = "config.toml", path_results: str = "output"):
             logger.error("------------------")
 
     # We cannot multiprocess with JAX, because JAX uses a threadpool
-    for idx, params in enumerate(ls_params):
+    for idx, params in enumerate(subset_params, start=batch_start):
         run_param_configuration_try(params, idx)
 
-    # Build the dataframe
+    # Build the dataframe once at the end
     build_dataframe(path_jsons, path_results=path_results)
 
 
