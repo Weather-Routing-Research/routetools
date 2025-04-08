@@ -106,6 +106,14 @@ def vectorfield_doublegyre(
     return u, v
 
 
+def _Ru(x: jnp.ndarray, y: jnp.ndarray, a: float, b: float) -> jnp.ndarray:
+    return 1 / (3 * ((x - a) ** 2 + (y - b) ** 2) + 1) * -(y - b)
+
+
+def _Rv(x: jnp.ndarray, y: jnp.ndarray, a: float, b: float) -> jnp.ndarray:
+    return 1 / (3 * ((x - a) ** 2 + (y - b) ** 2) + 1) * (x - a)
+
+
 @jit
 @time_invariant
 def vectorfield_fourvortices(
@@ -119,16 +127,8 @@ def vectorfield_fourvortices(
     Source: Ferraro 2021
     https://doi.org/10.1016/j.ifacol.2021.11.097
     """
-
-    def Ru(a: float, b: float) -> jnp.ndarray:
-        return 1 / (3 * ((x - a) ** 2 + (y - b) ** 2) + 1) * -(y - b)
-
-    u = 1.7 * (-Ru(2, 2) - Ru(4, 4) - Ru(2, 5) + Ru(5, 1))
-
-    def Rv(a: float, b: float) -> jnp.ndarray:
-        return 1 / (3 * ((x - a) ** 2 + (y - b) ** 2) + 1) * (x - a)
-
-    v = 1.7 * (-Rv(2, 2) - Rv(4, 4) - Rv(2, 5) + Rv(5, 1))
+    u = 1.7 * (-_Ru(x, y, 2, 2) - _Ru(x, y, 4, 4) - _Ru(x, y, 2, 5) + _Ru(x, y, 5, 1))
+    v = 1.7 * (-_Rv(x, y, 2, 2) - _Rv(x, y, 4, 4) - _Rv(x, y, 2, 5) + _Rv(x, y, 5, 1))
     return u, v
 
 
