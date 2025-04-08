@@ -58,7 +58,7 @@ def log_system_info():
 
 
 def run_param_configuration(
-    params: dict, path_jsons: str = "json", idx: int = 0, seed_max: int = 1
+    params: dict, path_jsons: str = "json", idx: int = 0
 ) -> None:
     """Run the optimization algorithm with the given parameters.
 
@@ -70,8 +70,6 @@ def run_param_configuration(
         Path to the folder where the JSON files will be saved, by default "json"
     idx : int, optional
         JSON number, by default 0
-    seed_max : int, optional
-        Maximum seed value, by default 1
     """
     # Path to the JSON file
     path_json = f"{path_jsons}/{idx:06d}.json"
@@ -92,14 +90,7 @@ def run_param_configuration(
 
     # Is source or destination on land?
     if land(params["src"]) or land(params["dst"]):
-        logger.info(
-            f"{idx}: Source or destination is on land. We will try another seed."
-        )
-        # If this happens, we increase the seed and try again
-        params["random_seed"] = int(params["random_seed"] + seed_max)
-        run_param_configuration(
-            params, path_jsons=path_jsons, idx=idx, seed_max=seed_max
-        )
+        logger.info(f"{idx}: Source or destination is on land.")
         return
     else:
         # Load the vectorfield function
@@ -314,9 +305,6 @@ def main(
     # Slice the parameters
     subset_params = ls_params[batch_start:batch_end]
 
-    # Get the highest seed
-    seed_max = max([params.get("random_seed", 1) for params in subset_params] + [1])
-
     # Ensure the output folder exists
     os.makedirs(path_results, exist_ok=True)
     path_jsons = path_results + "/json"
@@ -325,7 +313,7 @@ def main(
     # Wrap the function in a try-except block to catch any error
     def run_param_configuration_try(params: dict[str, Any], idx: int):
         try:
-            run_param_configuration(params, path_jsons, idx, seed_max)
+            run_param_configuration(params, path_jsons, idx)
             # Throttle the optimization loop
             # time.sleep(0.1)
         except Exception as e:
