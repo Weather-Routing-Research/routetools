@@ -163,6 +163,7 @@ def _cma_evolution_strategy(
             curve,
             travel_stw=travel_stw,
             travel_time=travel_time,
+            is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
         )
 
         # Land penalization
