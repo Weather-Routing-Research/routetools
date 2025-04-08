@@ -110,7 +110,9 @@ def hessian(
 
 
 def optimize_fms(
-    vectorfield: Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]],
+    vectorfield: Callable[
+        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+    ],
     src: jnp.ndarray | None = None,
     dst: jnp.ndarray | None = None,
     curve: jnp.ndarray | None = None,
@@ -192,7 +194,12 @@ def optimize_fms(
         def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
             # Stack q0 and q1 to form array of shape (1, 2, 2)
             q = jnp.vstack([q0, q1])[None, ...]
-            lag = cost_function(vectorfield, q, travel_stw=travel_stw)
+            lag = cost_function(
+                vectorfield,
+                q,
+                travel_stw=travel_stw,
+                is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
+            )
             ld = jnp.sum(h * lag**2)
             # Do note: The original formula used q0, q1 to compute l1, l2 and then
             # took the average of (l1**2 + l2**2) / 2
@@ -206,7 +213,12 @@ def optimize_fms(
         def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
             # Stack q0 and q1 to form array of shape (1, 2, 2)
             q = jnp.vstack([q0, q1])[None, ...]
-            lag = cost_function(vectorfield, q, travel_time=h)
+            lag = cost_function(
+                vectorfield,
+                q,
+                travel_time=h,
+                is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
+            )
             ld = jnp.sum(h * lag)
             # Do note: The original formula used q0, q1 to compute l1, l2 and then
             # took the average of (l1 + l2) / 2
@@ -245,6 +257,7 @@ def optimize_fms(
         curve,
         travel_stw=travel_stw,
         travel_time=travel_time,
+        is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
     )
     delta = jnp.array([jnp.inf])
 
@@ -263,6 +276,7 @@ def optimize_fms(
             curve,
             travel_stw=travel_stw,
             travel_time=travel_time,
+            is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
         )
         delta = 1 - cost_now / cost_old
         idx += 1

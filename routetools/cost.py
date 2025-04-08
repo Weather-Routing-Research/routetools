@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from jax import jit
 
 
-@partial(jit, static_argnums=(0, 2, 3))
+@partial(jit, static_argnums=(0, 2, 3, 4))
 def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
@@ -13,6 +13,7 @@ def cost_function(
     curve: jnp.ndarray,
     travel_stw: float | None = None,
     travel_time: float | None = None,
+    is_time_variant: bool = True,
 ) -> jnp.ndarray:
     """
     Compute the fuel consumption of a batch of paths navigating over a vector field.
@@ -32,6 +33,8 @@ def cost_function(
     travel_time : float, optional
         The boat can regulate its STW but must complete the path in exactly this time,
         by default None
+    is_time_variant : bool, optional
+        Whether the vectorfield has time dependency, by default True.
 
     Returns
     -------
@@ -41,7 +44,7 @@ def cost_function(
     cost: jnp.ndarray
     # Choose which cost function to use
     if travel_stw is not None:
-        if vectorfield.is_time_variant:  # type: ignore[attr-defined]
+        if is_time_variant:
             cost = cost_function_constant_speed_time_variant(
                 vectorfield, curve, travel_stw
             )
@@ -50,7 +53,7 @@ def cost_function(
                 vectorfield, curve, travel_stw
             )
     elif travel_time is not None:
-        if vectorfield.is_time_variant:  # type: ignore[attr-defined]
+        if is_time_variant:
             raise ValueError("Time variant vector fields are not supported.")
         else:
             cost = cost_function_constant_cost_time_invariant(
