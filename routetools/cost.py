@@ -54,13 +54,15 @@ def cost_function(
             )
     elif travel_time is not None:
         if is_time_variant:
-            raise ValueError("Time variant vector fields are not supported.")
+            # Not supported
+            return jnp.array([jnp.nan])
         else:
             cost = cost_function_constant_cost_time_invariant(
                 vectorfield, curve, travel_time
             )
     else:
-        raise ValueError("Either travel_stw or travel_time must be set.")
+        # Arguments missing
+        return jnp.array([jnp.nan])
     # Turn any possible infinite costs into 10x the highest value
     cost = jnp.where(jnp.isinf(cost), jnp.nan, cost)
     cost = jnp.nan_to_num(cost, nan=jnp.nanmax(cost, initial=1e10) * 10)
@@ -95,7 +97,7 @@ def cost_function_constant_speed_time_invariant(
     # Interpolate the vector field at the midpoints
     curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
     curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
-    uinterp, vinterp = vectorfield(curvex, curvey, jnp.array([]))
+    uinterp, vinterp = vectorfield(curvex, curvey, jnp.array([0.0]))
 
     # Distances between points in X and Y
     dx = jnp.diff(curve[:, :, 0], axis=1)
@@ -174,7 +176,7 @@ def cost_function_constant_speed_time_variant(
     t_init = jnp.zeros(curve.shape[0])
 
     # Use lax to implement the for loop
-    t_final, dt_array = lax.scan(step, t_init, inputs)  
+    t_final, dt_array = lax.scan(step, t_init, inputs)
 
     return t_final
 
@@ -207,7 +209,7 @@ def cost_function_constant_cost_time_invariant(
     # Interpolate the vector field at the midpoints
     curvex = (curve[:, :-1, 0] + curve[:, 1:, 0]) / 2
     curvey = (curve[:, :-1, 1] + curve[:, 1:, 1]) / 2
-    uinterp, vinterp = vectorfield(curvex, curvey, jnp.array([]))
+    uinterp, vinterp = vectorfield(curvex, curvey, jnp.array([0.0]))
 
     # Distances between points
     dx = jnp.diff(curve[:, :, 0], axis=1)
