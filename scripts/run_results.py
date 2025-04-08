@@ -16,7 +16,6 @@ from routetools.cmaes import optimize
 from routetools.config import list_config_combinations
 from routetools.fms import optimize_fms
 from routetools.land import Land
-from routetools.vectorfield import load_vectorfield_function
 
 # ---------------------------------------------------------------------------
 # Setup logging
@@ -103,8 +102,12 @@ def run_param_configuration(
         )
         return
     else:
-        # Vectorfield
-        vectorfield = load_vectorfield_function(params)
+        # Load the vectorfield function
+        vfname = params["vectorfield"]
+        vectorfield_module = __import__(
+            "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
+        )
+        vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
 
         # CMA-ES optimization algorithm
         start = time.time()

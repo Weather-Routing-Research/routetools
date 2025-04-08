@@ -10,7 +10,6 @@ from routetools.config import list_config_combinations
 from routetools.fms import optimize_fms
 from routetools.land import Land
 from routetools.plot import plot_curve
-from routetools.vectorfield import load_vectorfield_function
 
 
 def run_param_configuration(
@@ -54,7 +53,10 @@ def run_param_configuration(
 
     # Vectorfield
     vfname = params["vectorfield"]
-    vectorfield = load_vectorfield_function(params)
+    vectorfield_module = __import__(
+        "routetools.vectorfield", fromlist=["vectorfield_" + vfname]
+    )
+    vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
     penalty_init = params.get("penalty_init", 0)
     penalty_increment = params.get("penalty_increment", 1)
 
