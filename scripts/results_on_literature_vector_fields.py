@@ -115,7 +115,7 @@ def run_single_simulation(
     fig, ax = plot_curve(
         vectorfield_fun,
         [curve_cmaes, curve_fms],
-        ls_name=["CMA-ES", "FMS"],
+        ls_name=["CMA-ES", "FMS only"],
         ls_cost=[cost_cmaes, cost_fms],
         xlim=land_xlim,
         ylim=land_ylim,
@@ -130,7 +130,9 @@ def main(path_output: str = "./output", path_config: str = "config.toml"):
     # Make the output directory if it does not exist
     os.makedirs(path_output, exist_ok=True)
 
-    for vectorfield in sorted(["circular", "fourvortices", "doublegyre", "techy"]):
+    for vectorfield in sorted(
+        ["circular", "fourvortices", "doublegyre", "techy", "swirlys"]
+    ):
         run_single_simulation(
             vectorfield=vectorfield, path_img=path_output, path_config=path_config
         )
