@@ -15,7 +15,7 @@ do
   fi
 
   echo "Running parameters from $START to $((END-1))"
-  uv run scripts/run_results.py \
+  uv run scripts/parameter_search.py \
     --path-config config.toml \
     --path-results output \
     --batch-start $START \
