@@ -132,7 +132,6 @@ def run_single_simulation(
 
     if land(curve_cmaes).any():
         print("The curve is on land")
-        cost_cmaes = jnp.inf
 
     # FMS variational algorithm (refinement)
     start = time.time()
@@ -156,7 +155,6 @@ def run_single_simulation(
 
     if land(curve_fms).any():
         print("The curve is on land")
-        cost_fms = jnp.inf
 
     return time_cmaes, time_fms
 
@@ -175,7 +173,6 @@ def main(path_output: str = "./output", path_config: str = "config.toml"):
                     land_waterlevel=water_level,
                     land_resolution=land_resolution,
                     land_seed=land_seed,
-                    path_output=path_output,
                     path_config=path_config,
                 )
 
