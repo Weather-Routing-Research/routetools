@@ -1,23 +1,19 @@
 import time
 from collections.abc import Callable
-from functools import partial
 from pathlib import Path
 from typing import Any
 
 import cma
-import jax
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import numpy as np
 import typer
-from jax import jit
 
 from routetools.cost import cost_function
 from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices
 
 
-@jit
-def batch_bezier(t: jnp.ndarray, control: jnp.ndarray) -> jnp.ndarray:
+def batch_bezier(t: np.ndarray, control: np.ndarray) -> np.ndarray:
     """
     Evaluate a batch of Bézier curves (using de Casteljau's algorithm).
 
@@ -25,7 +21,7 @@ def batch_bezier(t: jnp.ndarray, control: jnp.ndarray) -> jnp.ndarray:
     :param control: batched matrix of control points, with shape B x P x N
     :return: batch of curves (matrix of shape B x K x N)
     """
-    control = jnp.tile(control[:, :, None, :], [1, 1, len(t), 1])
+    control = np.tile(control[:, :, None, :], [1, 1, len(t), 1])
     while control.shape[1] > 1:
         control = (1 - t[None, None, :, None]) * control[:, :-1, :, :] + t[
             None, None, :, None
@@ -33,20 +29,19 @@ def batch_bezier(t: jnp.ndarray, control: jnp.ndarray) -> jnp.ndarray:
     return control[:, 0, ...]
 
 
-@partial(jit, static_argnums=(3, 4))
 def control_to_curve(
-    control: jnp.ndarray,
-    src: jnp.ndarray,
-    dst: jnp.ndarray,
+    control: np.ndarray,
+    src: np.ndarray,
+    dst: np.ndarray,
     L: int = 64,
     num_pieces: int = 1,
-) -> jnp.ndarray:
+) -> np.ndarray:
     """
     Convert a batch of free parameters into a batch of Bézier curves.
 
     Parameters
     ----------
-    control : jnp.ndarray
+    control : np.ndarray
         A B x 2K matrix. The first K columns are the x positions of the Bézier
         control points, and the last K are the y positions
     L : int, optional
@@ -58,12 +53,12 @@ def control_to_curve(
     control = control.reshape(control.shape[0], -1, 2)
 
     # Add the fixed endpoints
-    first_point = jnp.broadcast_to(src, (control.shape[0], 1, 2))
-    last_point = jnp.broadcast_to(dst, (control.shape[0], 1, 2))
-    control = jnp.hstack([first_point, control, last_point])
+    first_point = np.broadcast_to(src, (control.shape[0], 1, 2))
+    last_point = np.broadcast_to(dst, (control.shape[0], 1, 2))
+    control = np.hstack([first_point, control, last_point])
 
     # Initialize the result
-    result: jnp.ndarray
+    result: np.ndarray
     if num_pieces > 1:
         # Ensure that the number of control points is divisible by the number of pieces
         control_per_piece = (control.shape[1] - 1) / num_pieces
@@ -94,32 +89,32 @@ def control_to_curve(
             waypoints_per_piece = int(waypoints_per_piece) + 1
 
         # Split the control points into pieces
-        ls_pieces: list[jnp.ndarray] = []
+        ls_pieces: list[np.ndarray] = []
         for i in range(num_pieces):
             start = i * control_per_piece
             end = (i + 1) * control_per_piece + 1
-            piece: jnp.ndarray = batch_bezier(
-                t=jnp.linspace(0, 1, waypoints_per_piece),
+            piece: np.ndarray = batch_bezier(
+                t=np.linspace(0, 1, waypoints_per_piece),
                 control=control[:, start:end, :],
             )[:, :-1]
             # The last point of each piece is omitted to avoid duplicates
             ls_pieces.append(piece)
         # Concatenate the pieces into a single curve
-        result = jnp.hstack(ls_pieces)
+        result = np.hstack(ls_pieces)
         # Add the destination (last) point (was omitted in the loop)
-        result = jnp.hstack([result, last_point])
+        result = np.hstack([result, last_point])
     else:
-        result = batch_bezier(t=jnp.linspace(0, 1, L), control=control)
+        result = batch_bezier(t=np.linspace(0, 1, L), control=control)
     return result
 
 
 def _cma_evolution_strategy(
     vectorfield: Callable[
-        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+        [np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]
     ],
-    src: jnp.ndarray,
-    dst: jnp.ndarray,
-    x0: jnp.ndarray,
+    src: np.ndarray,
+    dst: np.ndarray,
+    x0: np.ndarray,
     land: Land | None = None,
     penalty: float = 10,
     travel_stw: float | None = None,
@@ -131,11 +126,11 @@ def _cma_evolution_strategy(
     tolfun: float = 1e-4,
     damping: float = 1,
     maxfevals: int = 25000,
-    seed: float = jnp.nan,
+    seed: float = np.nan,
     verbose: bool = True,
     **kwargs: dict[str, Any],
 ) -> cma.CMAEvolutionStrategy:
-    curve: jnp.ndarray
+    curve: np.ndarray
     # Initialize the optimizer
     es = cma.CMAEvolutionStrategy(
         x0,
@@ -156,9 +151,9 @@ def _cma_evolution_strategy(
     # Optimization loop
     while not es.stop():
         X = es.ask()  # sample len(X) candidate solutions
-        curve = control_to_curve(jnp.array(X), src, dst, L=L, num_pieces=num_pieces)
+        curve = control_to_curve(np.array(X), src, dst, L=L, num_pieces=num_pieces)
 
-        cost: jnp.ndarray = cost_function(
+        cost: np.ndarray = cost_function(
             vectorfield,
             curve,
             travel_stw=travel_stw,
@@ -178,10 +173,10 @@ def _cma_evolution_strategy(
 
 def optimize(
     vectorfield: Callable[
-        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+        [np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]
     ],
-    src: jnp.ndarray,
-    dst: jnp.ndarray,
+    src: np.ndarray,
+    dst: np.ndarray,
     land: Land | None = None,
     penalty: float = 10,
     travel_stw: float | None = None,
@@ -194,9 +189,9 @@ def optimize(
     tolfun: float = 1e-4,
     damping: float = 1,
     maxfevals: int = 25000,
-    seed: float = jnp.nan,
+    seed: float = np.nan,
     verbose: bool = True,
-) -> tuple[jnp.ndarray, float]:
+) -> tuple[np.ndarray, float]:
     """
     Solve the vessel routing problem for a given vector field.
 
@@ -211,9 +206,9 @@ def optimize(
     ----------
     vectorfield : callable
         A function that returns the horizontal and vertical components of the vector
-    src : jnp.ndarray
+    src : np.ndarray
         Source point (2D)
-    dst : jnp.ndarray
+    dst : np.ndarray
         Destination point (2D)
     land_function : callable, optional
         A function that checks if points on a curve are on land, by default None
@@ -240,20 +235,20 @@ def optimize(
     maxfevals : int, optional
         Maximum number of function evaluations. By default 25000
     seed : int, optional
-        Random seed for reproducibility. By default jnp.nan
+        Random seed for reproducibility. By default np.nan
     verbose : bool, optional
         By default True
 
     Returns
     -------
-    tuple[jnp.ndarray, float]
+    tuple[np.ndarray, float]
         The optimized curve (shape L x 2), and the fuel cost
     """
     # Initial solution as a straight line
-    x0 = jnp.linspace(src, dst, K - 2).flatten()
+    x0 = np.linspace(src, dst, K - 2).flatten()
     # Initial standard deviation to sample new solutions
     # One sigma is half the distance between src and dst
-    sigma0 = float(jnp.linalg.norm(dst - src) * sigma0 / 2)
+    sigma0 = float(np.linalg.norm(dst - src) * sigma0 / 2)
 
     start = time.time()
     es = _cma_evolution_strategy(
@@ -286,10 +281,10 @@ def optimize(
 
 def optimize_with_increasing_penalization(
     vectorfield: Callable[
-        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+        [np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]
     ],
-    src: jnp.ndarray,
-    dst: jnp.ndarray,
+    src: np.ndarray,
+    dst: np.ndarray,
     land: Land,
     penalty_init: float = 0,
     penalty_increment: float = 10,
@@ -304,9 +299,9 @@ def optimize_with_increasing_penalization(
     tolfun: float = 1e-4,
     damping: float = 1,
     maxfevals: int = 25000,
-    seed: float = jnp.nan,
+    seed: float = np.nan,
     verbose: bool = True,
-) -> tuple[list[jnp.ndarray], list[float]]:
+) -> tuple[list[np.ndarray], list[float]]:
     """
     Solve the vessel routing problem for a given vector field.
 
@@ -321,9 +316,9 @@ def optimize_with_increasing_penalization(
     ----------
     vectorfield : callable
         A function that returns the horizontal and vertical components of the vector
-    src : jnp.ndarray
+    src : np.ndarray
         Source point (2D)
-    dst : jnp.ndarray
+    dst : np.ndarray
         Destination point (2D)
     land_function : callable
         A function that checks if points on a curve are on land
@@ -354,20 +349,20 @@ def optimize_with_increasing_penalization(
     maxfevals : int, optional
         Maximum number of function evaluations. By default 25000
     seed : int, optional
-        Random seed for reproducibility. By default jnp.nan
+        Random seed for reproducibility. By default np.nan
     verbose : bool, optional
         By default True
 
     Returns
     -------
-    tuple[list[jnp.ndarray], list[float]]
+    tuple[list[np.ndarray], list[float]]
         The list of optimized curves (each with shape L x 2), and the list of fuel costs
     """
     # Initial solution as a straight line
-    x0 = jnp.linspace(src, dst, K - 2).flatten()
+    x0 = np.linspace(src, dst, K - 2).flatten()
     # Initial standard deviation to sample new solutions
     # One sigma is half the distance between src and dst
-    sigma0 = float(jnp.linalg.norm(dst - src) * sigma0 / 2)
+    sigma0 = float(np.linalg.norm(dst - src) * sigma0 / 2)
 
     # Initializations
     penalty = penalty_init
@@ -402,7 +397,7 @@ def optimize_with_increasing_penalization(
             print("Fuel cost:", es.best.f)
 
         Xbest = es.best.x[None, :]
-        curve: jnp.ndarray = control_to_curve(
+        curve: np.ndarray = control_to_curve(
             Xbest, src, dst, L=L, num_pieces=num_pieces
         )[0, ...]
         # sigma0 = es.sigma0
@@ -425,18 +420,12 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
 
     The vector field is a superposition of four vortices.
     """
-    if not gpu:
-        jax.config.update("jax_platforms", "cpu")  # type: ignore[no-untyped-call]
-
-    # Check if JAX is using the GPU
-    print("JAX devices:", jax.devices())
-
     # Create the output folder if needed
     output_folder = Path("output")
     output_folder.mkdir(exist_ok=True)
 
-    src = jnp.array([0, 0])
-    dst = jnp.array([6, 2])
+    src = np.array([0, 0])
+    dst = np.array([6, 2])
 
     curve, _ = optimize(
         vectorfield_fourvortices,
@@ -455,10 +444,10 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     xmin, xmax = curve[:, 0].min(), curve[:, 0].max()
     ymin, ymax = curve[:, 1].min(), curve[:, 1].max()
 
-    x: jnp.ndarray = jnp.arange(xmin, xmax, 0.5)
-    y: jnp.ndarray = jnp.arange(ymin, ymax, 0.5)
-    X, Y = jnp.meshgrid(x, y)
-    t = jnp.zeros_like(X)
+    x: np.ndarray = np.arange(xmin, xmax, 0.5)
+    y: np.ndarray = np.arange(ymin, ymax, 0.5)
+    X, Y = np.meshgrid(x, y)
+    t = np.zeros_like(X)
     U, V = vectorfield_fourvortices(X, Y, t)
 
     plt.figure()

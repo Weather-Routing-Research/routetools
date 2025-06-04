@@ -1,8 +1,8 @@
 import os
 import tomllib
 
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import numpy as np
 import typer
 
 from routetools.cmaes import optimize
@@ -61,8 +61,8 @@ def run_single_simulation(
 
     # Extract the vectorfield parameters
     vfparams = config["vectorfield"][vectorfield]
-    src = jnp.array(vfparams["src"])
-    dst = jnp.array(vfparams["dst"])
+    src = np.array(vfparams["src"])
+    dst = np.array(vfparams["dst"])
     travel_stw = vfparams.get("travel_stw", None)
     travel_time = vfparams.get("travel_time", None)
     land_xlim = vfparams.get("xlim", None)
@@ -95,7 +95,7 @@ def run_single_simulation(
     # Create a straight line from source to destination,
     # with as many points as the CMA-ES curve
     num_points = curve_cmaes.shape[0]
-    curve_straight = jnp.linspace(src, dst, num_points)
+    curve_straight = np.linspace(src, dst, num_points)
 
     # FMS variational algorithm (refinement)
     curve_fms, cost_fms = optimize_fms(

@@ -2,8 +2,8 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.axes import Axes
@@ -14,14 +14,14 @@ from routetools.land import Land
 
 def plot_curve(
     vectorfield: Callable[
-        [jnp.ndarray, jnp.ndarray, float], tuple[jnp.ndarray, jnp.ndarray]
+        [np.ndarray, np.ndarray, float], tuple[np.ndarray, np.ndarray]
     ],
-    ls_curve: list[jnp.ndarray],
+    ls_curve: list[np.ndarray],
     ls_name: list[str] | None = None,
     ls_cost: list[float] | None = None,
     land: Land | None = None,
-    xlim: tuple[float, float] = (jnp.inf, -jnp.inf),
-    ylim: tuple[float, float] = (jnp.inf, -jnp.inf),
+    xlim: tuple[float, float] = (np.inf, -np.inf),
+    ylim: tuple[float, float] = (np.inf, -np.inf),
     figsize: tuple[float, float] = (4, 4),
     cost: str = "cost",
     legend_outside: bool = False,
@@ -32,17 +32,17 @@ def plot_curve(
     ----------
     vectorfield : Callable
         Vectorfield function
-    ls_curve : list[jnp.ndarray]
+    ls_curve : list[np.ndarray]
         List of curves to plot
     ls_name : list[str] | None, optional
         List of names for each curve, by default None
     ls_cost : list[float] | None, optional
         List of costs for each curve, by default None
-    land_array : jnp.ndarray | None, optional
+    land_array : np.ndarray | None, optional
         Array of land, by default None
-    xlnd : jnp.ndarray | None, optional
+    xlnd : np.ndarray | None, optional
         x values of the land array, by default None
-    ylnd : jnp.ndarray | None, optional
+    ylnd : np.ndarray | None, optional
         y values of the land array, by default None
     xlim : tuple | None, optional
         x limits, by default None
@@ -110,13 +110,13 @@ def plot_curve(
     ax.plot(dst[0], dst[1], "o", color="green", zorder=3)
 
     # Plot the vectorfield
-    xvf = jnp.arange(xlim[0] - 0.5, xlim[1] + 0.5, 0.25)
-    yvf = jnp.arange(ylim[0] - 0.5, ylim[1] + 0.5, 0.25)
+    xvf = np.arange(xlim[0] - 0.5, xlim[1] + 0.5, 0.25)
+    yvf = np.arange(ylim[0] - 0.5, ylim[1] + 0.5, 0.25)
     t = 0
-    X, Y = jnp.meshgrid(xvf, yvf)
+    X, Y = np.meshgrid(xvf, yvf)
     U, V = vectorfield(X, Y, t)
     # Skip if all is 0
-    if not jnp.all(U == 0) or not jnp.all(V == 0):
+    if not np.all(U == 0) or not np.all(V == 0):
         ax.quiver(X, Y, U, V, zorder=1)
 
     if legend_outside:
@@ -151,7 +151,7 @@ def plot_route_from_json(path_json: str) -> tuple[Figure, Axes]:
         data: dict[str, Any] = json.load(file)
 
     # Get the data
-    ls_curve = [jnp.array(data["curve_cmaes"]), jnp.array(data["curve_fms"])]
+    ls_curve = [np.array(data["curve_cmaes"]), np.array(data["curve_fms"])]
     ls_name = ["CMA-ES", "FMS"]
     ls_cost = [data["cost_cmaes"], data["cost_fms"]]
 

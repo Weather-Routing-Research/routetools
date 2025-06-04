@@ -16,7 +16,6 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "typer-slim",
-    "jax[cuda12]>=0.4.33",
     "matplotlib>=3.9.2",
     "cma>=4.0.0",
     "pytest>=8.3.2",
@@ -24,6 +23,7 @@ dependencies = [
     "xarray>=2024.11.0",
     "perlin-numpy>=0.0.1",
     "seaborn>=0.13.2",
+    "scipy>=1.15.3",
 ]
 
 [project.urls]

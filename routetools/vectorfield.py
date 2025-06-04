@@ -1,14 +1,11 @@
 from collections.abc import Callable
 
-import jax.numpy as jnp
-from jax import jit
+import numpy as np
 
 
 def time_variant(
-    func: Callable[
-        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
-    ],
-) -> Callable[[jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]]:
+    func: Callable[[np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
+) -> Callable[[np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
     """Mark a vector field as time variant.
 
     Parameters
@@ -27,10 +24,8 @@ def time_variant(
 
 
 def time_invariant(
-    func: Callable[
-        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
-    ],
-) -> Callable[[jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]]:
+    func: Callable[[np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
+) -> Callable[[np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
     """Mark a vector field as time invariant.
 
     Parameters
@@ -48,15 +43,14 @@ def time_invariant(
     return func
 
 
-@jit
 @time_invariant
 def vectorfield_circular(
-    x: jnp.ndarray,
-    y: jnp.ndarray,
-    t: jnp.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
+    t: np.ndarray,
     intensity: float = -0.9,
     centre: tuple[float, float] = (0, 0),
-) -> tuple[jnp.ndarray, jnp.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Vector field with a circular pattern.
 
@@ -69,16 +63,15 @@ def vectorfield_circular(
     return u, v
 
 
-@jit
 @time_variant
 def vectorfield_doublegyre(
-    x: jnp.ndarray,
-    y: jnp.ndarray,
-    t: jnp.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
+    t: np.ndarray,
     amp: float = 0.1,
     eps: float = 0.25,
     w: float = 1,
-) -> tuple[jnp.ndarray, jnp.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Vector field with a double gyre pattern.
 
@@ -97,30 +90,29 @@ def vectorfield_doublegyre(
     w : float
         Frequency of the gyre, by default 1
     """
-    a = eps * jnp.sin(w * t)
-    b = 1 - 2 * eps * jnp.sin(w * t)
-    f = a * jnp.power(x, 2) + b * x
+    a = eps * np.sin(w * t)
+    b = 1 - 2 * eps * np.sin(w * t)
+    f = a * np.power(x, 2) + b * x
     dfdx = 2 * a * x + b
-    u = -jnp.pi * amp * jnp.sin(jnp.pi * f) * jnp.cos(jnp.pi * y)
-    v = jnp.pi * amp * jnp.cos(jnp.pi * f) * jnp.sin(jnp.pi * y) * dfdx
+    u = -np.pi * amp * np.sin(np.pi * f) * np.cos(np.pi * y)
+    v = np.pi * amp * np.cos(np.pi * f) * np.sin(np.pi * y) * dfdx
     return u, v
 
 
-def _Ru(x: jnp.ndarray, y: jnp.ndarray, a: float, b: float) -> jnp.ndarray:
+def _Ru(x: np.ndarray, y: np.ndarray, a: float, b: float) -> np.ndarray:
     return 1 / (3 * ((x - a) ** 2 + (y - b) ** 2) + 1) * -(y - b)
 
 
-def _Rv(x: jnp.ndarray, y: jnp.ndarray, a: float, b: float) -> jnp.ndarray:
+def _Rv(x: np.ndarray, y: np.ndarray, a: float, b: float) -> np.ndarray:
     return 1 / (3 * ((x - a) ** 2 + (y - b) ** 2) + 1) * (x - a)
 
 
-@jit
 @time_invariant
 def vectorfield_fourvortices(
-    x: jnp.ndarray,
-    y: jnp.ndarray,
-    t: jnp.ndarray,
-) -> tuple[jnp.ndarray, jnp.ndarray]:
+    x: np.ndarray,
+    y: np.ndarray,
+    t: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Vector field with four vortices.
 
@@ -132,29 +124,27 @@ def vectorfield_fourvortices(
     return u, v
 
 
-@jit
 @time_invariant
 def vectorfield_swirlys(
-    x: jnp.ndarray,
-    y: jnp.ndarray,
-    t: jnp.ndarray,
-) -> tuple[jnp.ndarray, jnp.ndarray]:
+    x: np.ndarray,
+    y: np.ndarray,
+    t: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Vector field with periodic behaviour.
 
     Source: Ferraro 2021
     https://doi.org/10.1016/j.ifacol.2021.11.097
     """
-    u = jnp.cos(2 * x - y - 6)
-    v = 2 / 3 * jnp.sin(y) + x - 3
+    u = np.cos(2 * x - y - 6)
+    v = 2 / 3 * np.sin(y) + x - 3
     return u, v
 
 
-@jit
 @time_variant
 def vectorfield_techy(
-    x: jnp.ndarray, y: jnp.ndarray, t: jnp.ndarray, sink: float = -0.3
-) -> tuple[jnp.ndarray, jnp.ndarray]:
+    x: np.ndarray, y: np.ndarray, t: np.ndarray, sink: float = -0.3
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Vector field with time dependency.
 
@@ -173,10 +163,9 @@ def vectorfield_techy(
     return u, v
 
 
-@jit
 @time_invariant
 def vectorfield_zero(
-    x: jnp.ndarray, y: jnp.ndarray, t: jnp.ndarray
-) -> tuple[jnp.ndarray, jnp.ndarray]:
+    x: np.ndarray, y: np.ndarray, t: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """No currents."""
-    return jnp.zeros_like(x), jnp.zeros_like(y)
+    return np.zeros_like(x), np.zeros_like(y)

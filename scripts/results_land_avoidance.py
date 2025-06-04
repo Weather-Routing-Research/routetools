@@ -2,7 +2,7 @@ import os
 import time
 import tomllib
 
-import jax.numpy as jnp
+import numpy as np
 import pandas as pd
 import typer
 
@@ -80,8 +80,8 @@ def run_single_simulation(
 
     # Extract the vectorfield parameters
     vfparams = config["vectorfield"][vectorfield]
-    src = jnp.array(vfparams["src"])
-    dst = jnp.array(vfparams["dst"])
+    src = np.array(vfparams["src"])
+    dst = np.array(vfparams["dst"])
     travel_stw = vfparams.get("travel_stw", None)
     travel_time = vfparams.get("travel_time", None)
     land_xlim = vfparams.get("xlim", None)
