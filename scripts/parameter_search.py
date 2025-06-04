@@ -176,8 +176,6 @@ def run_param_configuration(
     # Force garbage collection to free up memory
     # This is important to avoid memory leaks
     gc.collect()
-    # Clear the cache to free up memory
-    np.clear_caches()
 
     # Output system information
     log_system_info()
