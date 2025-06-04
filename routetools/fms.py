@@ -4,6 +4,7 @@ from collections.abc import Callable
 import matplotlib.pyplot as plt
 import numpy as np
 import typer
+from scipy.optimize import minimize
 
 from routetools.cost import cost_function
 from routetools.land import Land
@@ -28,18 +29,20 @@ def random_piecewise_curve(
         Ending point of the curves.
     num_curves : int
         Number of curves to generate.
-    key : np.random.PRNGKey
-        Random key for generating random numbers.
+    num_points : int
+        Number of points per curve.
+    seed : int
+        Random seed for reproducibility.
 
     Returns
     -------
     np.ndarray
-        Generated curves with shape (num_curves, num_segments, 2).
+        Generated curves with shape (num_curves, num_points, 2).
     """
-    key = np.random.PRNGKey(seed)
-    num_segments = np.random.randint(key, (num_curves,), minval=2, maxval=5)
-    ls_angs = np.random.uniform(key, (num_curves * 5,), minval=-0.5, maxval=0.5)
-    ls_dist = np.random.uniform(key, (num_curves * 5,), minval=0.1, maxval=0.9)
+    np.random.seed(seed)
+    num_segments = np.random.randint(2, 5, size=num_curves)
+    ls_angs = np.random.uniform(-0.5, 0.5, size=num_curves * 5)
+    ls_dist = np.random.uniform(0.1, 0.9, size=num_curves * 5)
 
     curves = []
     for idx_route in range(num_curves):
@@ -84,27 +87,6 @@ def random_piecewise_curve(
         curves.append(np.stack([x, y], axis=-1))
 
     return np.stack(curves)
-
-
-def hessian(
-    f: Callable[[np.ndarray, np.ndarray], np.ndarray], argnums: int = 0
-) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
-    """
-    Compute the Hessian of a function.
-
-    Parameters
-    ----------
-    f : Callable
-        Function to differentiate.
-    argnums : int, optional
-        Argument number to differentiate, by default 0
-
-    Returns
-    -------
-    Callable
-        Hessian of the function.
-    """
-    return jacfwd(jacrev(f, argnums=argnums), argnums=argnums)
 
 
 def optimize_fms(
@@ -199,9 +181,6 @@ def optimize_fms(
                 is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
             )
             ld = np.sum(h * lag**2)
-            # Do note: The original formula used q0, q1 to compute l1, l2 and then
-            # took the average of (l1**2 + l2**2) / 2
-            # We simplified that without loss of generality
             return ld
 
     elif travel_time is not None:
@@ -218,35 +197,22 @@ def optimize_fms(
                 is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
             )
             ld = np.sum(h * lag)
-            # Do note: The original formula used q0, q1 to compute l1, l2 and then
-            # took the average of (l1 + l2) / 2
-            # We simplified that without loss of generality
             return ld
 
     else:
         raise ValueError("Either travel_stw or travel_time must be provided")
 
-    d1ld = grad(lagrangian, argnums=0)
-    d2ld = grad(lagrangian, argnums=1)
-    d11ld = hessian(lagrangian, argnums=0)
-    d22ld = hessian(lagrangian, argnums=1)
-
-    def jacobian(qkm1: np.ndarray, qk: np.ndarray, qkp1: np.ndarray) -> np.ndarray:
-        b = -d2ld(qkm1, qk) - d1ld(qk, qkp1)
-        a = d22ld(qkm1, qk) + d11ld(qk, qkp1)
-        q: np.ndarray = np.linalg.solve(a, b)
-        return np.nan_to_num(q)
-
-    jac_vectorized = vmap(jacobian, in_axes=(0, 0, 0), out_axes=(0))
-
-    def solve_equation(curve: np.ndarray) -> np.ndarray:
-        curve_new = np.copy(curve)
-        q = jac_vectorized(curve[:-2], curve[1:-1], curve[2:])
-        return curve_new.at[1:-1].set((1 - damping) * q + curve[1:-1])
-
-    solve_vectorized: Callable[[np.ndarray], np.ndarray] = vmap(
-        solve_equation, in_axes=(0), out_axes=(0)
-    )
+    def objective(x: np.ndarray, curve: np.ndarray) -> float:
+        """Objective function for optimization."""
+        curve_new = curve.copy()
+        curve_new[1:-1] = x.reshape(-1, 2)
+        return cost_function(
+            vectorfield,
+            curve_new[None, ...],
+            travel_stw=travel_stw,
+            travel_time=travel_time,
+            is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
+        )[0]
 
     cost_now = cost_function(
         vectorfield,
@@ -262,11 +228,24 @@ def optimize_fms(
     while (idx < maxfevals) & (delta >= tolfun).any():
         cost_old = cost_now
         curve_old = curve.copy()
-        curve = solve_vectorized(curve)
+        
+        # Optimize each curve
+        for i in range(curve.shape[0]):
+            x0 = curve[i, 1:-1].flatten()
+            result = minimize(
+                objective,
+                x0,
+                args=(curve[i],),
+                method='L-BFGS-B',
+                options={'maxiter': 1}
+            )
+            curve[i, 1:-1] = result.x.reshape(-1, 2)
+            
         # Replace points on land with previous iteration
         if land is not None:
             is_land = land(curve) > 0
             curve = np.where(is_land[..., None], curve_old, curve)
+            
         cost_now = cost_function(
             vectorfield,
             curve,
