@@ -67,8 +67,10 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
         new_dict = dict(zip(keys, v, strict=False))
         # If water_level is 1.0, we don't need to specify resolution or seed
         if new_dict["water_level"] >= 1.0:
-            new_dict.pop("resolution")
-            new_dict.pop("random_seed")
+            if "resolution" in new_dict:
+                new_dict.pop("resolution")
+            if "random_seed" in new_dict:
+                new_dict.pop("random_seed")
         # Include to the list if is not duplicated
         if new_dict not in ls_lndparams:
             ls_lndparams.append(new_dict)
