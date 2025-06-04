@@ -8,13 +8,13 @@ from routetools.fms import optimize_fms
 from routetools.vectorfield import vectorfield_zero
 
 
-def main(w=2, maxfevals=50, damping=0.1, frames=200):
+def main(w: float = 2.0, maxfevals: int = 50, damping: float = 0.1, frames: int = 200):
     """Draw the FMS optimization.
 
     Parameters
     ----------
-    w : int, optional
-        The noise level, by default 2
+    w : float, optional
+        The noise level, by default 2.0
     maxfevals : int, optional
         The maximum number of iterations, by default 50
     damping : float, optional
@@ -35,23 +35,21 @@ def main(w=2, maxfevals=50, damping=0.1, frames=200):
     # Replicate (100, 2) to (4, 100, 2)
     routes = np.repeat(routes[None, ...], 4, axis=0)
 
-    key = np.random.PRNGKey(0)
     # Route 0: Add random noise to the X-axis
-    routes = routes.at[0, 1:99, 0].set(
-        routes[0, 1:99, 0] + w * np.random.normal(key, (98,))
-    )
+    noise_x = w * np.random.normal(0, 1, (98,))
+    routes[0, 1:99, 0] = routes[0, 1:99, 0] + noise_x
+    
     # Route 1: Add random noise to the Y-axis
-    routes = routes.at[1, 1:99, 1].set(
-        routes[1, 1:99, 1] + w * np.random.normal(key, (98,))
-    )
+    noise_y = w * np.random.normal(0, 1, (98,))
+    routes[1, 1:99, 1] = routes[1, 1:99, 1] + noise_y
+    
     # Route 2: Add random noise to both the X-axis and Y-axis
-    routes = routes.at[2, 1:99].set(
-        routes[2, 1:99] + w * np.random.normal(key, (98, 2))
-    )
+    noise_xy = w * np.random.normal(0, 1, (98, 2))
+    routes[2, 1:99] = routes[2, 1:99] + noise_xy
+    
     # Route 3: Add a sinusoidal noise to the X-axis
-    routes = routes.at[3, :, 0].set(
-        routes[3, :, 0] + w * np.sin(np.pi * np.linspace(0, 2, 100))
-    )
+    sin_noise = w * np.sin(np.pi * np.linspace(0, 2, 100))
+    routes[3, :, 0] = routes[3, :, 0] + sin_noise
 
     # Initialize list of lines
     ls_lines = []
@@ -77,7 +75,7 @@ def main(w=2, maxfevals=50, damping=0.1, frames=200):
         list[Line2D]
             List of lines to animate
         """
-        global routes
+        nonlocal routes
         # Run the FMS for one step
         routes, costs = optimize_fms(
             vectorfield_zero,
