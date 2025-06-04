@@ -1,4 +1,4 @@
-import jax.numpy as jnp
+import numpy as np
 import pytest
 
 from routetools.vectorfield import vectorfield_fourvortices
@@ -17,8 +17,8 @@ def test_vectorfield_fourvortices(
     """
     Test the vectorfield_fourvortices function.
     """
-    x, y = jnp.array(x), jnp.array(y)
-    u_expected, v_expected = jnp.array(u_expected), jnp.array(v_expected)
+    x, y = np.array(x), np.array(y)
+    u_expected, v_expected = np.array(u_expected), np.array(v_expected)
     u, v = vectorfield_fourvortices(x, y, None)
-    assert jnp.allclose(u, u_expected, rtol=1e-3)
-    assert jnp.allclose(v, v_expected, rtol=1e-3)
+    assert np.allclose(u, u_expected, rtol=1e-3)
+    assert np.allclose(v, v_expected, rtol=1e-3)

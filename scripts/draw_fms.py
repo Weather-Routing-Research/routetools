@@ -1,5 +1,4 @@
-import jax
-import jax.numpy as jnp
+import numpy as np
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import typer
@@ -30,28 +29,28 @@ def main(w=2, maxfevals=50, damping=0.1, frames=200):
         ax.set_ylim(0, 6)
 
     # Initial route straight from (0,0) to (6,6)
-    x = jnp.linspace(0, 6, 100)
-    y = jnp.linspace(0, 6, 100)
-    routes = jnp.stack([x, y], axis=1)
+    x = np.linspace(0, 6, 100)
+    y = np.linspace(0, 6, 100)
+    routes = np.stack([x, y], axis=1)
     # Replicate (100, 2) to (4, 100, 2)
-    routes = jnp.repeat(routes[None, ...], 4, axis=0)
+    routes = np.repeat(routes[None, ...], 4, axis=0)
 
-    key = jax.random.PRNGKey(0)
+    key = np.random.PRNGKey(0)
     # Route 0: Add random noise to the X-axis
     routes = routes.at[0, 1:99, 0].set(
-        routes[0, 1:99, 0] + w * jax.random.normal(key, (98,))
+        routes[0, 1:99, 0] + w * np.random.normal(key, (98,))
     )
     # Route 1: Add random noise to the Y-axis
     routes = routes.at[1, 1:99, 1].set(
-        routes[1, 1:99, 1] + w * jax.random.normal(key, (98,))
+        routes[1, 1:99, 1] + w * np.random.normal(key, (98,))
     )
     # Route 2: Add random noise to both the X-axis and Y-axis
     routes = routes.at[2, 1:99].set(
-        routes[2, 1:99] + w * jax.random.normal(key, (98, 2))
+        routes[2, 1:99] + w * np.random.normal(key, (98, 2))
     )
     # Route 3: Add a sinusoidal noise to the X-axis
     routes = routes.at[3, :, 0].set(
-        routes[3, :, 0] + w * jnp.sin(jnp.pi * jnp.linspace(0, 2, 100))
+        routes[3, :, 0] + w * np.sin(np.pi * np.linspace(0, 2, 100))
     )
 
     # Initialize list of lines

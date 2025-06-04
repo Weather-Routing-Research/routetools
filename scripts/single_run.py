@@ -1,7 +1,7 @@
 import time
 import tomllib
 
-import jax.numpy as jnp
+import numpy as np
 import matplotlib.pyplot as plt
 import typer
 
@@ -81,8 +81,8 @@ def run_single_simulation(
 
     # Extract the vectorfield parameters
     vfparams = config["vectorfield"][vectorfield]
-    src = jnp.array(vfparams["src"])
-    dst = jnp.array(vfparams["dst"])
+    src = np.array(vfparams["src"])
+    dst = np.array(vfparams["dst"])
     travel_stw = vfparams.get("travel_stw", None)
     travel_time = vfparams.get("travel_time", None)
     land_xlim = vfparams.get("xlim", None)
@@ -132,7 +132,7 @@ def run_single_simulation(
 
     if land(curve_cmaes).any():
         print("The curve is on land")
-        cost_cmaes = jnp.inf
+        cost_cmaes = np.inf
 
     print(f"Computation time of CMA-ES: {time.time() - start}")
 
@@ -155,7 +155,7 @@ def run_single_simulation(
 
     if land(curve_fms).any():
         print("The curve is on land")
-        cost_fms = jnp.inf
+        cost_fms = np.inf
 
     print(f"Computation time of FMS: {time.time() - start}")
 

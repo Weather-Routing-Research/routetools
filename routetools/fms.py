@@ -1,11 +1,9 @@
 import time
 from collections.abc import Callable
 
-import jax
-import jax.numpy as jnp
+import numpy as np
 import matplotlib.pyplot as plt
 import typer
-from jax import grad, jacfwd, jacrev, jit, vmap
 
 from routetools.cost import cost_function
 from routetools.land import Land
@@ -13,84 +11,84 @@ from routetools.vectorfield import vectorfield_fourvortices
 
 
 def random_piecewise_curve(
-    src: jnp.ndarray,
-    dst: jnp.ndarray,
+    src: np.ndarray,
+    dst: np.ndarray,
     num_curves: int = 1,
     num_points: int = 200,
     seed: int = 0,
-) -> jnp.ndarray:
+) -> np.ndarray:
     """
     Generate random piecewise linear curves between src and dst.
 
     Parameters
     ----------
-    src : jnp.ndarray
+    src : np.ndarray
         Starting point of the curves.
-    dst : jnp.ndarray
+    dst : np.ndarray
         Ending point of the curves.
     num_curves : int
         Number of curves to generate.
-    key : jax.random.PRNGKey
+    key : np.random.PRNGKey
         Random key for generating random numbers.
 
     Returns
     -------
-    jnp.ndarray
+    np.ndarray
         Generated curves with shape (num_curves, num_segments, 2).
     """
-    key = jax.random.PRNGKey(seed)
-    num_segments = jax.random.randint(key, (num_curves,), minval=2, maxval=5)
-    ls_angs = jax.random.uniform(key, (num_curves * 5,), minval=-0.5, maxval=0.5)
-    ls_dist = jax.random.uniform(key, (num_curves * 5,), minval=0.1, maxval=0.9)
+    key = np.random.PRNGKey(seed)
+    num_segments = np.random.randint(key, (num_curves,), minval=2, maxval=5)
+    ls_angs = np.random.uniform(key, (num_curves * 5,), minval=-0.5, maxval=0.5)
+    ls_dist = np.random.uniform(key, (num_curves * 5,), minval=0.1, maxval=0.9)
 
     curves = []
     for idx_route in range(num_curves):
         x_start, y_start = src
         x_end, y_end = dst
-        x_pts: list[jnp.ndarray] = [x_start]
-        y_pts: list[jnp.ndarray] = [y_start]
-        ls_d: list[jnp.ndarray] = []
+        x_pts: list[np.ndarray] = [x_start]
+        y_pts: list[np.ndarray] = [y_start]
+        ls_d: list[np.ndarray] = []
         for idx_seg in range(num_segments[idx_route] - 1):
             dx = x_end - x_pts[-1]
             dy = y_end - y_pts[-1]
-            ang = jnp.arctan2(dy, dx)
+            ang = np.arctan2(dy, dx)
             ang_dev = 0.5 * ls_angs[idx_route * 5 + idx_seg]
-            d = jnp.sqrt(dx**2 + dy**2) * ls_dist[idx_route * 5 + idx_seg]
-            x_pts.append(x_pts[-1] + d * jnp.cos(ang + ang_dev))
-            y_pts.append(y_pts[-1] + d * jnp.sin(ang + ang_dev))
+            d = np.sqrt(dx**2 + dy**2) * ls_dist[idx_route * 5 + idx_seg]
+            x_pts.append(x_pts[-1] + d * np.cos(ang + ang_dev))
+            y_pts.append(y_pts[-1] + d * np.sin(ang + ang_dev))
             ls_d.append(d)
         x_pts.append(x_end)
         y_pts.append(y_end)
-        ls_d.append(jnp.sqrt((x_end - x_pts[-2]) ** 2 + (y_end - y_pts[-2]) ** 2))
-        dist = jnp.array(ls_d).flatten()
+        ls_d.append(np.sqrt((x_end - x_pts[-2]) ** 2 + (y_end - y_pts[-2]) ** 2))
+        dist = np.array(ls_d).flatten()
         # To ensure the points of the route are equi-distant,
         # the number of points per segment will depend on its distance
         # in relation to the total distance travelled
         num_points_seg = (num_points * dist / dist.sum()).astype(int)
         # Start generating the points
-        x = jnp.array([x_start])
-        y = jnp.array([y_start])
+        x = np.array([x_start])
+        y = np.array([y_start])
         for idx_seg in range(num_segments[idx_route]):
             nps: int = int(num_points_seg[idx_seg]) + 1
-            x_new = jnp.linspace(x_pts[idx_seg], x_pts[idx_seg + 1], nps).flatten()
-            x = jnp.concatenate([x, x_new[1:]])
-            y_new = jnp.linspace(y_pts[idx_seg], y_pts[idx_seg + 1], nps).flatten()
-            y = jnp.concatenate([y, y_new[1:]])
+            x_new = np.linspace(x_pts[idx_seg], x_pts[idx_seg + 1], nps).flatten()
+            x = np.concatenate([x, x_new[1:]])
+            y_new = np.linspace(y_pts[idx_seg], y_pts[idx_seg + 1], nps).flatten()
+            y = np.concatenate([y, y_new[1:]])
         # Ensure the total number of points matches num_points
         if len(x) < num_points:
-            x = jnp.concatenate([x, jnp.full(num_points - len(x), x_end)])
-            y = jnp.concatenate([y, jnp.full(num_points - len(y), y_end)])
+            x = np.concatenate([x, np.full(num_points - len(x), x_end)])
+            y = np.concatenate([y, np.full(num_points - len(y), y_end)])
         elif len(x) > num_points:
-            x = jnp.concatenate([x[: num_points - 1], x_end])
-            y = jnp.concatenate([y[: num_points - 1], y_end])
-        curves.append(jnp.stack([x, y], axis=-1))
+            x = np.concatenate([x[: num_points - 1], x_end])
+            y = np.concatenate([y[: num_points - 1], y_end])
+        curves.append(np.stack([x, y], axis=-1))
 
-    return jnp.stack(curves)
+    return np.stack(curves)
 
 
 def hessian(
-    f: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray], argnums: int = 0
-) -> Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]:
+    f: Callable[[np.ndarray, np.ndarray], np.ndarray], argnums: int = 0
+) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
     """
     Compute the Hessian of a function.
 
@@ -111,11 +109,11 @@ def hessian(
 
 def optimize_fms(
     vectorfield: Callable[
-        [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
+        [np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]
     ],
-    src: jnp.ndarray | None = None,
-    dst: jnp.ndarray | None = None,
-    curve: jnp.ndarray | None = None,
+    src: np.ndarray | None = None,
+    dst: np.ndarray | None = None,
+    curve: np.ndarray | None = None,
     land: Land | None = None,
     num_curves: int = 10,
     num_points: int = 200,
@@ -126,7 +124,7 @@ def optimize_fms(
     maxfevals: int = 5000,
     seed: int = 0,
     verbose: bool = True,
-) -> tuple[jnp.ndarray, jnp.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Optimize a curve using the FMS algorithm.
 
@@ -135,15 +133,15 @@ def optimize_fms(
 
     Parameters
     ----------
-    vectorfield : Callable[[jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]]
+    vectorfield : Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]
         Vector field function.
-    src : jnp.ndarray | None, optional
+    src : np.ndarray | None, optional
         Origin point, by default None
-    dst : jnp.ndarray | None, optional
+    dst : np.ndarray | None, optional
         Destination point, by default None
-    curve : jnp.ndarray | None, optional
+    curve : np.ndarray | None, optional
         Curve to optimize, shape L x 2, by default None
-    land_function : Callable[[jnp.ndarray], jnp.ndarray] | None, optional
+    land_function : Callable[[np.ndarray], np.ndarray] | None, optional
         Land function, by default None
     num_curves : int, optional
         Number of curves to optimize, only used when initial curves are not provided,
@@ -166,7 +164,7 @@ def optimize_fms(
 
     Returns
     -------
-    jnp.ndarray
+    np.ndarray
         Optimized curve with shape L x 2
     """
     start = time.time()
@@ -188,19 +186,19 @@ def optimize_fms(
     # Initialize lagrangians
     if travel_stw is not None:
         # Average distance between points
-        d = jnp.mean(jnp.linalg.norm(curve[:, 1:] - curve[:, :-1], axis=-1))
+        d = np.mean(np.linalg.norm(curve[:, 1:] - curve[:, :-1], axis=-1))
         h = float(d / travel_stw)
 
-        def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
+        def lagrangian(q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
             # Stack q0 and q1 to form array of shape (1, 2, 2)
-            q = jnp.vstack([q0, q1])[None, ...]
+            q = np.vstack([q0, q1])[None, ...]
             lag = cost_function(
                 vectorfield,
                 q,
                 travel_stw=travel_stw,
                 is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
             )
-            ld = jnp.sum(h * lag**2)
+            ld = np.sum(h * lag**2)
             # Do note: The original formula used q0, q1 to compute l1, l2 and then
             # took the average of (l1**2 + l2**2) / 2
             # We simplified that without loss of generality
@@ -210,16 +208,16 @@ def optimize_fms(
         assert travel_time > 0, "Travel time must be positive"
         h = float(travel_time / curve.shape[1])
 
-        def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
+        def lagrangian(q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
             # Stack q0 and q1 to form array of shape (1, 2, 2)
-            q = jnp.vstack([q0, q1])[None, ...]
+            q = np.vstack([q0, q1])[None, ...]
             lag = cost_function(
                 vectorfield,
                 q,
                 travel_time=h,
                 is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
             )
-            ld = jnp.sum(h * lag)
+            ld = np.sum(h * lag)
             # Do note: The original formula used q0, q1 to compute l1, l2 and then
             # took the average of (l1 + l2) / 2
             # We simplified that without loss of generality
@@ -233,22 +231,22 @@ def optimize_fms(
     d11ld = hessian(lagrangian, argnums=0)
     d22ld = hessian(lagrangian, argnums=1)
 
-    @jit
-    def jacobian(qkm1: jnp.ndarray, qk: jnp.ndarray, qkp1: jnp.ndarray) -> jnp.ndarray:
+    
+    def jacobian(qkm1: np.ndarray, qk: np.ndarray, qkp1: np.ndarray) -> np.ndarray:
         b = -d2ld(qkm1, qk) - d1ld(qk, qkp1)
         a = d22ld(qkm1, qk) + d11ld(qk, qkp1)
-        q: jnp.ndarray = jnp.linalg.solve(a, b)
-        return jnp.nan_to_num(q)
+        q: np.ndarray = np.linalg.solve(a, b)
+        return np.nan_to_num(q)
 
     jac_vectorized = vmap(jacobian, in_axes=(0, 0, 0), out_axes=(0))
 
-    @jit
-    def solve_equation(curve: jnp.ndarray) -> jnp.ndarray:
-        curve_new = jnp.copy(curve)
+    
+    def solve_equation(curve: np.ndarray) -> np.ndarray:
+        curve_new = np.copy(curve)
         q = jac_vectorized(curve[:-2], curve[1:-1], curve[2:])
         return curve_new.at[1:-1].set((1 - damping) * q + curve[1:-1])
 
-    solve_vectorized: Callable[[jnp.ndarray], jnp.ndarray] = vmap(
+    solve_vectorized: Callable[[np.ndarray], np.ndarray] = vmap(
         solve_equation, in_axes=(0), out_axes=(0)
     )
 
@@ -259,7 +257,7 @@ def optimize_fms(
         travel_time=travel_time,
         is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
     )
-    delta = jnp.array([jnp.inf])
+    delta = np.array([np.inf])
 
     # Loop iterations
     idx = 0
@@ -270,7 +268,7 @@ def optimize_fms(
         # Replace points on land with previous iteration
         if land is not None:
             is_land = land(curve) > 0
-            curve = jnp.where(is_land[..., None], curve_old, curve)
+            curve = np.where(is_land[..., None], curve_old, curve)
         cost_now = cost_function(
             vectorfield,
             curve,
@@ -295,14 +293,9 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
 
     The vector field is a superposition of four vortices.
     """
-    if not gpu:
-        jax.config.update("jax_platforms", "cpu")  # type: ignore[no-untyped-call]
 
-    # Check if JAX is using the GPU
-    print("JAX devices:", jax.devices())
-
-    src = jnp.array([0, 0])
-    dst = jnp.array([6, 2])
+    src = np.array([0, 0])
+    dst = np.array([6, 2])
 
     curve, cost = optimize_fms(
         vectorfield_fourvortices,
@@ -318,9 +311,9 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     xmin, xmax = curve[..., 0].min(), curve[..., 0].max()
     ymin, ymax = curve[..., 1].min(), curve[..., 1].max()
 
-    x: jnp.ndarray = jnp.arange(xmin, xmax, 0.5)
-    y: jnp.ndarray = jnp.arange(ymin, ymax, 0.5)
-    X, Y = jnp.meshgrid(x, y)
+    x: np.ndarray = np.arange(xmin, xmax, 0.5)
+    y: np.ndarray = np.arange(ymin, ymax, 0.5)
+    X, Y = np.meshgrid(x, y)
     U, V = vectorfield_fourvortices(X, Y, None)
 
     plt.figure()

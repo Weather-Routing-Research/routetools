@@ -6,8 +6,7 @@ import shutil
 import time
 from typing import Any
 
-import jax
-import jax.numpy as jnp
+import numpy as np
 import pandas as pd
 import psutil
 import typer
@@ -123,7 +122,7 @@ def run_param_configuration(
         )
         if land(curve).any():
             logger.info(f"{idx}: CMA-ES curve is on land")
-            cost = jnp.inf
+            cost = np.inf
 
         comp_time = time.time() - start
 
@@ -145,7 +144,7 @@ def run_param_configuration(
         curve_fms, cost_fms = curve_fms[0], cost_fms[0]
         if land(curve_fms).any():
             logger.info(f"{idx}: FMS curve is on land")
-            cost_fms = jnp.inf
+            cost_fms = np.inf
 
         comp_time_fms = time.time() - start
 
@@ -160,7 +159,7 @@ def run_param_configuration(
             "curve_fms": curve_fms.tolist(),
         }
 
-        # src and dst are jnp arrays, convert them to lists
+        # src and dst are np arrays, convert them to lists
         results["src"] = params["src"].tolist()
         results["dst"] = params["dst"].tolist()
 
@@ -178,7 +177,7 @@ def run_param_configuration(
     # This is important to avoid memory leaks
     gc.collect()
     # Clear the cache to free up memory
-    jax.clear_caches()
+    np.clear_caches()
 
     # Output system information
     log_system_info()
@@ -320,7 +319,6 @@ def main(
             logger.error(f"{idx}: Error! {e}")
             logger.error("------------------")
 
-    # We cannot multiprocess with JAX, because JAX uses a threadpool
     for idx, params in enumerate(subset_params, start=batch_start):
         run_param_configuration_try(params, idx)
 

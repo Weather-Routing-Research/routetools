@@ -1,7 +1,6 @@
 import time
 
-import jax
-import jax.numpy as jnp
+import numpy as np
 import matplotlib.pyplot as plt
 import typer
 
@@ -15,13 +14,9 @@ def main(gpu: bool = True) -> None:
 
     Test for both CPU and GPU.
     """
-    if not gpu:
-        jax.config.update("jax_platforms", "cpu")  # type: ignore[no-untyped-call]
-    # Check if JAX is using the GPU
-    print("JAX devices:", jax.devices())
 
-    src = jnp.array([0, 0])
-    dst = jnp.array([6, 2])
+    src = np.array([0, 0])
+    dst = np.array([6, 2])
 
     list_popsizes = [100, 250, 500, 1000, 2500, 5000]
     list_times = []

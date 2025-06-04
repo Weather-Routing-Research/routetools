@@ -1,4 +1,4 @@
-import jax.numpy as jnp
+import numpy as np
 import pytest
 
 from routetools.cmaes import optimize
@@ -15,22 +15,22 @@ from routetools.vectorfield import (
     [
         (
             vectorfield_fourvortices,
-            jnp.array([0, 0]),
-            jnp.array([6, 2]),
+            np.array([0, 0]),
+            np.array([6, 2]),
             10.0,
         ),
         (
             vectorfield_techy,
-            jnp.array([jnp.cos(jnp.pi / 6), jnp.sin(jnp.pi / 6)]),
-            jnp.array([0, 1]),
+            np.array([np.cos(np.pi / 6), np.sin(np.pi / 6)]),
+            np.array([0, 1]),
             1.04,
         ),
     ],
 )
 def test_cmaes_constant_speed(
     vectorfield: callable,
-    src: jnp.array,
-    dst: jnp.array,
+    src: np.array,
+    dst: np.array,
     expected: float,
     L: int = 64,
 ):
@@ -44,7 +44,7 @@ def test_cmaes_constant_speed(
         sigma0=1,
         seed=1,
     )
-    assert isinstance(curve, jnp.ndarray)
+    assert isinstance(curve, np.ndarray)
     assert curve.shape[0] == L
     assert curve.shape[1] == 2
     assert isinstance(cost, float)
@@ -56,16 +56,16 @@ def test_cmaes_constant_speed(
     [
         (
             vectorfield_swirlys,
-            jnp.array([0, 0]),
-            jnp.array([6, 5]),
+            np.array([0, 0]),
+            np.array([6, 5]),
             6.0,
         ),
     ],
 )
 def test_cmaes_constant_time(
     vectorfield: callable,
-    src: jnp.array,
-    dst: jnp.array,
+    src: np.array,
+    dst: np.array,
     expected: float,
     L: int = 64,
 ):
@@ -79,7 +79,7 @@ def test_cmaes_constant_time(
         sigma0=2,
         seed=1,
     )
-    assert isinstance(curve, jnp.ndarray)
+    assert isinstance(curve, np.ndarray)
     assert curve.shape[0] == L
     assert curve.shape[1] == 2
     assert isinstance(cost, float)
@@ -91,20 +91,20 @@ def test_cmaes_constant_time(
     [
         (
             vectorfield_fourvortices,
-            jnp.array([0, 0]),
-            jnp.array([6, 2]),
+            np.array([0, 0]),
+            np.array([6, 2]),
         ),
         (
             vectorfield_techy,
-            jnp.array([jnp.cos(jnp.pi / 6), jnp.sin(jnp.pi / 6)]),
-            jnp.array([0, 1]),
+            np.array([np.cos(np.pi / 6), np.sin(np.pi / 6)]),
+            np.array([0, 1]),
         ),
     ],
 )
 def test_cmaes_constant_speed_with_land(
     vectorfield: callable,
-    src: jnp.array,
-    dst: jnp.array,
+    src: np.array,
+    dst: np.array,
 ):
     xlim = sorted((src[0], dst[0]))
     ylim = sorted((src[1], dst[1]))
@@ -121,7 +121,7 @@ def test_cmaes_constant_speed_with_land(
         sigma0=1,
         seed=1,
     )
-    assert isinstance(curve, jnp.ndarray)
+    assert isinstance(curve, np.ndarray)
     assert curve.shape[1] == 2
     assert isinstance(cost, float)
 
@@ -131,8 +131,8 @@ def test_cmaes_constant_speed_with_land(
     [
         (
             vectorfield_fourvortices,
-            jnp.array([0, 0]),
-            jnp.array([6, 2]),
+            np.array([0, 0]),
+            np.array([6, 2]),
             10.0,
             13,
             61,
@@ -140,8 +140,8 @@ def test_cmaes_constant_speed_with_land(
         ),
         (
             vectorfield_techy,
-            jnp.array([jnp.cos(jnp.pi / 6), jnp.sin(jnp.pi / 6)]),
-            jnp.array([0, 1]),
+            np.array([np.cos(np.pi / 6), np.sin(np.pi / 6)]),
+            np.array([0, 1]),
             1.04,
             7,
             61,
@@ -151,8 +151,8 @@ def test_cmaes_constant_speed_with_land(
 )
 def test_cmaes_constant_speed_piecewise(
     vectorfield: callable,
-    src: jnp.array,
-    dst: jnp.array,
+    src: np.array,
+    dst: np.array,
     expected: float,
     K: int,
     L: int,
@@ -171,7 +171,7 @@ def test_cmaes_constant_speed_piecewise(
         tolfun=0.1,
         seed=1,
     )
-    assert isinstance(curve, jnp.ndarray)
+    assert isinstance(curve, np.ndarray)
     assert curve.shape[0] == L
     assert curve.shape[1] == 2
     assert isinstance(cost, float)

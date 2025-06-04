@@ -4,7 +4,7 @@ setup(
     name="cmaes_bezier_demo",
     version="0.1.0",
     packages=find_packages(),
-    install_requires=["jax", "jaxlib", "matplotlib", "numpy", "scipy"],
+    install_requires=["matplotlib", "numpy", "scipy"],
     author="Weather Routing Research",
     description="Routing tools for continuous vector fields",
     long_description_content_type="text/markdown",

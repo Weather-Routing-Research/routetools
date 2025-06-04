@@ -2,7 +2,7 @@ import itertools
 import tomllib
 from typing import Any
 
-import jax.numpy as jnp
+import numpy as np
 
 
 def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
@@ -53,9 +53,9 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
     vfparams: dict[str, Any]
     for vfname, vfparams in dict_vectorfield.items():
         vfparams["vectorfield"] = vfname
-        # Convert src and dst to jnp.array
-        vfparams["src"] = jnp.array(vfparams["src"])
-        vfparams["dst"] = jnp.array(vfparams["dst"])
+        # Convert src and dst to np.array
+        vfparams["src"] = np.array(vfparams["src"])
+        vfparams["dst"] = np.array(vfparams["dst"])
 
         # Include to the list
         ls_vfparams.append(vfparams)
@@ -86,7 +86,7 @@ def list_config_combinations(path_config: str) -> list[dict[str, Any]]:
     ]
 
     # Sort the list of dictionaries by the keys that will
-    # influence the size of JAX arrays
+    # influence the size of arrays
     # This is important for the GPU memory allocation
     ls_sort = ["num_pieces", "K", "L", "popsize"]
     ls_params.sort(key=lambda x: [x[k] for k in ls_sort], reverse=True)
