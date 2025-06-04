@@ -1,7 +1,7 @@
 import time
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import typer
 
 from routetools.cmaes import optimize
@@ -14,7 +14,6 @@ def main(gpu: bool = True) -> None:
 
     Test for both CPU and GPU.
     """
-
     src = np.array([0, 0])
     dst = np.array([6, 2])
 

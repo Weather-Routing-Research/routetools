@@ -4,9 +4,7 @@ import numpy as np
 
 
 def time_variant(
-    func: Callable[
-        [np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]
-    ],
+    func: Callable[[np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
     """Mark a vector field as time variant.
 
@@ -26,9 +24,7 @@ def time_variant(
 
 
 def time_invariant(
-    func: Callable[
-        [np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]
-    ],
+    func: Callable[[np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
     """Mark a vector field as time invariant.
 
@@ -45,7 +41,6 @@ def time_invariant(
     func.is_time_variant = False  # type: ignore[attr-defined]
 
     return func
-
 
 
 @time_invariant
@@ -66,7 +61,6 @@ def vectorfield_circular(
     u = -intensity * (y - y0)
     v = intensity * (x - x0)
     return u, v
-
 
 
 @time_variant
@@ -113,7 +107,6 @@ def _Rv(x: np.ndarray, y: np.ndarray, a: float, b: float) -> np.ndarray:
     return 1 / (3 * ((x - a) ** 2 + (y - b) ** 2) + 1) * (x - a)
 
 
-
 @time_invariant
 def vectorfield_fourvortices(
     x: np.ndarray,
@@ -131,7 +124,6 @@ def vectorfield_fourvortices(
     return u, v
 
 
-
 @time_invariant
 def vectorfield_swirlys(
     x: np.ndarray,
@@ -147,7 +139,6 @@ def vectorfield_swirlys(
     u = np.cos(2 * x - y - 6)
     v = 2 / 3 * np.sin(y) + x - 3
     return u, v
-
 
 
 @time_variant
@@ -170,7 +161,6 @@ def vectorfield_techy(
     u = sink * x - vortex * y
     v = vortex * x + sink * y
     return u, v
-
 
 
 @time_invariant

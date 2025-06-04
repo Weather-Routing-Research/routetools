@@ -1,8 +1,8 @@
 import time
 from collections.abc import Callable
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import typer
 
 from routetools.cost import cost_function
@@ -231,7 +231,6 @@ def optimize_fms(
     d11ld = hessian(lagrangian, argnums=0)
     d22ld = hessian(lagrangian, argnums=1)
 
-    
     def jacobian(qkm1: np.ndarray, qk: np.ndarray, qkp1: np.ndarray) -> np.ndarray:
         b = -d2ld(qkm1, qk) - d1ld(qk, qkp1)
         a = d22ld(qkm1, qk) + d11ld(qk, qkp1)
@@ -240,7 +239,6 @@ def optimize_fms(
 
     jac_vectorized = vmap(jacobian, in_axes=(0, 0, 0), out_axes=(0))
 
-    
     def solve_equation(curve: np.ndarray) -> np.ndarray:
         curve_new = np.copy(curve)
         q = jac_vectorized(curve[:-2], curve[1:-1], curve[2:])
@@ -293,7 +291,6 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
 
     The vector field is a superposition of four vortices.
     """
-
     src = np.array([0, 0])
     dst = np.array([6, 2])
 

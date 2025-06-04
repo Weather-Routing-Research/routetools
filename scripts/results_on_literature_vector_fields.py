@@ -1,8 +1,8 @@
 import os
 import tomllib
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import typer
 
 from routetools.cmaes import optimize

@@ -1,10 +1,8 @@
-from functools import partial
 from math import ceil
 
 import numpy as np
-import numpy as np
-from scipy.ndimage import map_coordinates
 from perlin_numpy import generate_perlin_noise_2d as pn2d
+from scipy.ndimage import map_coordinates
 
 
 class Land:
@@ -105,7 +103,7 @@ class Land:
         # Ensure curve has at least 2 dimensions
         if curve.ndim == 1:
             curve = curve.reshape(1, 2)
-            
+
         # Extract x and y coordinates from the curve
         x_coords = curve[..., 0]
         y_coords = curve[..., 1]
@@ -131,7 +129,7 @@ class Land:
                 | (y_coords > self.ymax)
             )
             is_land = is_land | is_out
-            
+
         # If input was a single point, return a scalar
         if curve.shape[0] == 1:
             return is_land[0]
@@ -160,12 +158,9 @@ class Land:
         left = curve_new[: -(n + 1), :] * left[:, None]
         right = curve_new[(n + 1) :, :] * right[:, None]
         interp = (left + right) / (n + 2)
-        
+
         # Replace the JAX-specific array update with NumPy operations
-        curve_new = np.concatenate([
-            interp,
-            curve_new[-(n + 1):]
-        ])[:-n, :]
+        curve_new = np.concatenate([interp, curve_new[-(n + 1) :]])[:-n, :]
 
         # Extract x and y coordinates from the curve
         x_coords = curve_new[..., 0]

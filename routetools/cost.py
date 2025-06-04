@@ -156,9 +156,9 @@ def cost_function_constant_speed_time_variant(
     # Calculate travel times for each segment
     t_final = t_init.copy()
     dt_array = np.zeros_like(dx.T)
-    
+
     for i in range(len(curvex.T)):
-        x, y, dx_step, dy_step, d2_step = [arr[i] for arr in inputs]
+        x, y, dx_step, dy_step, d2_step = (arr[i] for arr in inputs)
         # When sailing from i-1 to i, we interpolate the vector field at the midpoint
         uinterp, vinterp = vectorfield(x, y, t_final)
         # Power of the current speed

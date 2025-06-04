@@ -1,17 +1,16 @@
 import time
 from collections.abc import Callable
-from functools import partial
 from pathlib import Path
 from typing import Any
-import numpy as np
+
 import cma
 import matplotlib.pyplot as plt
+import numpy as np
 import typer
 
 from routetools.cost import cost_function
 from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices
-
 
 
 def batch_bezier(t: np.ndarray, control: np.ndarray) -> np.ndarray:
@@ -421,7 +420,6 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
 
     The vector field is a superposition of four vortices.
     """
-
     # Create the output folder if needed
     output_folder = Path("output")
     output_folder.mkdir(exist_ok=True)

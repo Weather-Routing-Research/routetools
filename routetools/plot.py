@@ -2,8 +2,8 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.axes import Axes

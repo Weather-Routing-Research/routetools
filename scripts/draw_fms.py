@@ -1,6 +1,6 @@
-import numpy as np
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import numpy as np
 import typer
 from matplotlib.lines import Line2D
 
