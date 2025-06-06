@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import typer
 from jax import grad, jacfwd, jacrev, jit, vmap
 
-from routetools.cost import cost_function
+from routetools.cost import choose_cost_function
 from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices
 
@@ -191,15 +191,14 @@ def optimize_fms(
         d = jnp.mean(jnp.linalg.norm(curve[:, 1:] - curve[:, :-1], axis=-1))
         h = float(d / travel_stw)
 
+        cost_function = choose_cost_function(
+            vectorfield=vectorfield, travel_stw=travel_stw
+        )
+
         def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
             # Stack q0 and q1 to form array of shape (1, 2, 2)
             q = jnp.vstack([q0, q1])[None, ...]
-            lag = cost_function(
-                vectorfield,
-                q,
-                travel_stw=travel_stw,
-                is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
-            )
+            lag = cost_function(q)
             ld = jnp.sum(h * lag**2)
             # Do note: The original formula used q0, q1 to compute l1, l2 and then
             # took the average of (l1**2 + l2**2) / 2
@@ -210,15 +209,12 @@ def optimize_fms(
         assert travel_time > 0, "Travel time must be positive"
         h = float(travel_time / curve.shape[1])
 
+        cost_function = choose_cost_function(vectorfield=vectorfield, travel_time=h)
+
         def lagrangian(q0: jnp.ndarray, q1: jnp.ndarray) -> jnp.ndarray:
             # Stack q0 and q1 to form array of shape (1, 2, 2)
             q = jnp.vstack([q0, q1])[None, ...]
-            lag = cost_function(
-                vectorfield,
-                q,
-                travel_time=h,
-                is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
-            )
+            lag = cost_function(q)
             ld = jnp.sum(h * lag)
             # Do note: The original formula used q0, q1 to compute l1, l2 and then
             # took the average of (l1 + l2) / 2
@@ -252,13 +248,7 @@ def optimize_fms(
         solve_equation, in_axes=(0), out_axes=(0)
     )
 
-    cost_now = cost_function(
-        vectorfield,
-        curve,
-        travel_stw=travel_stw,
-        travel_time=travel_time,
-        is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
-    )
+    cost_now = cost_function(curve)
     delta = jnp.array([jnp.inf])
 
     # Loop iterations
@@ -271,13 +261,7 @@ def optimize_fms(
         if land is not None:
             is_land = land(curve) > 0
             curve = jnp.where(is_land[..., None], curve_old, curve)
-        cost_now = cost_function(
-            vectorfield,
-            curve,
-            travel_stw=travel_stw,
-            travel_time=travel_time,
-            is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
-        )
+        cost_now = cost_function(curve)
         delta = 1 - cost_now / cost_old
         idx += 1
 

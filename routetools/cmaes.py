@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import typer
 from jax import jit
 
-from routetools.cost import cost_function
+from routetools.cost import choose_cost_function
 from routetools.land import Land
 from routetools.vectorfield import vectorfield_fourvortices
 
@@ -153,18 +153,19 @@ def _cma_evolution_strategy(
     if land is not None:
         assert penalty is not None, "penalty must be a number"
 
+    # Choose the appropiate cost function
+    cost_function = choose_cost_function(
+        vectorfield=vectorfield,
+        travel_stw=travel_stw,
+        travel_time=travel_time,
+    )
+
     # Optimization loop
     while not es.stop():
         X = es.ask()  # sample len(X) candidate solutions
         curve = control_to_curve(jnp.array(X), src, dst, L=L, num_pieces=num_pieces)
 
-        cost: jnp.ndarray = cost_function(
-            vectorfield,
-            curve,
-            travel_stw=travel_stw,
-            travel_time=travel_time,
-            is_time_variant=vectorfield.is_time_variant,  # type: ignore[attr-defined]
-        )
+        cost: jnp.ndarray = cost_function(curve)
 
         # Land penalization
         if land is not None:

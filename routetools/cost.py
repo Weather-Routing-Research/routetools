@@ -1,75 +1,70 @@
 from collections.abc import Callable
-from functools import partial
 
 import jax.numpy as jnp
 from jax import jit, lax
 
 
-@partial(jit, static_argnums=(0, 2, 3, 4))
-def cost_function(
+def choose_cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
     ],
-    curve: jnp.ndarray,
     travel_stw: float | None = None,
     travel_time: float | None = None,
-    is_time_variant: bool = True,
-) -> jnp.ndarray:
+) -> Callable[
+    [jnp.ndarray],
+    jnp.ndarray,
+]:
     """
-    Compute the fuel consumption of a batch of paths navigating over a vector field.
+    Choose the cost function based on the vector field properties.
 
-    Two modes are supported:
-    - Fixed travel speed through water (STW)
-    - Fixed travel time.
+    This function is a placeholder for future logic that might depend on the vector field.
 
     Parameters
     ----------
     vectorfield : Callable
         A function that returns the horizontal and vertical components of the vector
-    curve : jnp.ndarray
-        A batch of trajectories (an array of shape B x L x 2)
-    travel_stw : float, optional
-        The boat will have this fixed speed through water (STW), by default None
-    travel_time : float, optional
-        The boat can regulate its STW but must complete the path in exactly this time,
-        by default None
-    is_time_variant : bool, optional
-        Whether the vectorfield has time dependency, by default True.
 
     Returns
     -------
-    jnp.ndarray
-        A batch of scalars (vector of shape B)
+    Callable
+        The cost function to use
     """
-    cost: jnp.ndarray
     # Choose which cost function to use
     if travel_stw is not None:
-        if is_time_variant:
-            cost = cost_function_constant_speed_time_variant(
-                vectorfield, curve, travel_stw
-            )
+        if vectorfield.is_time_variant:
+
+            @jit
+            def cost_function(curve: jnp.ndarray) -> jnp.ndarray:
+                return cost_function_constant_speed_time_variant(
+                    vectorfield, curve, travel_stw
+                )
         else:
-            cost = cost_function_constant_speed_time_invariant(
-                vectorfield, curve, travel_stw
-            )
+
+            @jit
+            def cost_function(curve: jnp.ndarray) -> jnp.ndarray:
+                return cost_function_constant_speed_time_invariant(
+                    vectorfield, curve, travel_stw
+                )
     elif travel_time is not None:
-        if is_time_variant:
+        if vectorfield.is_time_variant:
             # Not supported
-            return jnp.array([jnp.nan])
-        else:
-            cost = cost_function_constant_cost_time_invariant(
-                vectorfield, curve, travel_time
+            raise NotImplementedError(
+                "Time-variant cost function with fixed travel time is not implemented."
             )
+        else:
+
+            @jit
+            def cost_function(curve: jnp.ndarray) -> jnp.ndarray:
+                return cost_function_constant_cost_time_invariant(
+                    vectorfield, curve, travel_time
+                )
     else:
         # Arguments missing
-        return jnp.array([jnp.nan])
-    # Turn any possible infinite costs into 10x the highest value
-    cost = jnp.where(jnp.isinf(cost), jnp.nan, cost)
-    cost = jnp.nan_to_num(cost, nan=jnp.nanmax(cost, initial=1e10) * 10)
-    return cost
+        raise ValueError("Either travel_stw or travel_time must be provided.")
+
+    return cost_function
 
 
-@partial(jit, static_argnums=(0, 2))
 def cost_function_constant_speed_time_invariant(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
@@ -114,10 +109,13 @@ def cost_function_constant_speed_time_invariant(
     # Current > speed -> infeasible path
     dt = jnp.where(v2 <= w2, float("inf"), dt)
     t_total = jnp.sum(dt, axis=1)
-    return t_total
+
+    # Turn any possible infinite costs into 10x the highest value
+    cost = jnp.where(jnp.isinf(t_total), jnp.nan, t_total)
+    cost = jnp.nan_to_num(cost, nan=jnp.nanmax(cost, initial=1e10) * 10)
+    return cost
 
 
-@partial(jit, static_argnums=(0, 2))
 def cost_function_constant_speed_time_variant(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
@@ -178,10 +176,12 @@ def cost_function_constant_speed_time_variant(
     # Use lax to implement the for loop
     t_final, dt_array = lax.scan(step, t_init, inputs)
 
-    return t_final
+    # Turn any possible infinite costs into 10x the highest value
+    cost = jnp.where(jnp.isinf(t_final), jnp.nan, t_final)
+    cost = jnp.nan_to_num(cost, nan=jnp.nanmax(cost, initial=1e10) * 10)
+    return cost
 
 
-@partial(jit, static_argnums=(0, 2))
 def cost_function_constant_cost_time_invariant(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
@@ -223,4 +223,8 @@ def cost_function_constant_cost_time_invariant(
     # We must navigate the path in a fixed time
     cost = ((dxdt - uinterp) ** 2 + (dydt - vinterp) ** 2) / 2
     total_cost = jnp.sum(cost, axis=1) * dt
-    return total_cost
+
+    # Turn any possible infinite costs into 10x the highest value
+    cost = jnp.where(jnp.isinf(total_cost), jnp.nan, total_cost)
+    cost = jnp.nan_to_num(cost, nan=jnp.nanmax(cost, initial=1e10) * 10)
+    return cost
