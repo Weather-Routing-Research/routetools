@@ -9,7 +9,7 @@ from routetools.fms import optimize_fms
 from routetools.vectorfield import vectorfield_zero
 
 
-def main(w=2, maxfevals=50, damping=0.1, frames=200):
+def main(w: float = 2, maxfevals: int = 50, damping: float = 0.1, frames: int = 200):
     """Draw the FMS optimization.
 
     Parameters
@@ -36,23 +36,22 @@ def main(w=2, maxfevals=50, damping=0.1, frames=200):
     # Replicate (100, 2) to (4, 100, 2)
     routes = jnp.repeat(routes[None, ...], 4, axis=0)
 
-    key = jax.random.PRNGKey(0)
+    key = jax.random.PRNGKey(1)
     # Route 0: Add random noise to the X-axis
-    routes = routes.at[0, 1:99, 0].set(
-        routes[0, 1:99, 0] + w * jax.random.normal(key, (98,))
-    )
+    noise_x = jax.random.normal(key, (98,)) * w
+    routes = routes.at[0, 1:99, 0].set(routes[0, 1:99, 0] + noise_x)
+
     # Route 1: Add random noise to the Y-axis
-    routes = routes.at[1, 1:99, 1].set(
-        routes[1, 1:99, 1] + w * jax.random.normal(key, (98,))
-    )
+    noise_y = w * jax.random.normal(key, (98,))
+    routes = routes.at[1, 1:99, 1].set(routes[1, 1:99, 1] + noise_y)
+
     # Route 2: Add random noise to both the X-axis and Y-axis
-    routes = routes.at[2, 1:99].set(
-        routes[2, 1:99] + w * jax.random.normal(key, (98, 2))
-    )
+    noise_xy = w * jax.random.normal(key, (98, 2))
+    routes = routes.at[2, 1:99].set(routes[2, 1:99] + noise_xy)
+
     # Route 3: Add a sinusoidal noise to the X-axis
-    routes = routes.at[3, :, 0].set(
-        routes[3, :, 0] + w * jnp.sin(jnp.pi * jnp.linspace(0, 2, 100))
-    )
+    sin_noise = w * jnp.sin(jnp.pi * jnp.linspace(0, 2, 100))
+    routes = routes.at[3, :, 0].set(routes[3, :, 0] + sin_noise)
 
     # Initialize list of lines
     ls_lines = []
@@ -78,7 +77,7 @@ def main(w=2, maxfevals=50, damping=0.1, frames=200):
         list[Line2D]
             List of lines to animate
         """
-        global routes
+        nonlocal routes
         # Run the FMS for one step
         routes, costs = optimize_fms(
             vectorfield_zero,
@@ -86,6 +85,7 @@ def main(w=2, maxfevals=50, damping=0.1, frames=200):
             damping=damping,
             travel_stw=1,
             maxfevals=maxfevals,
+            tolfun=1e-11,
             verbose=False,
         )
         for idx in range(4):
