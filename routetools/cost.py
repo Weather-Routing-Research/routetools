@@ -33,14 +33,12 @@ def choose_cost_function(
     if travel_stw is not None:
         if vectorfield.is_time_variant:
 
-            @jit
             def cost_function(curve: jnp.ndarray) -> jnp.ndarray:
                 return cost_function_constant_speed_time_variant(
                     vectorfield, curve, travel_stw
                 )
         else:
 
-            @jit
             def cost_function(curve: jnp.ndarray) -> jnp.ndarray:
                 return cost_function_constant_speed_time_invariant(
                     vectorfield, curve, travel_stw
@@ -53,7 +51,6 @@ def choose_cost_function(
             )
         else:
 
-            @jit
             def cost_function(curve: jnp.ndarray) -> jnp.ndarray:
                 return cost_function_constant_cost_time_invariant(
                     vectorfield, curve, travel_time
@@ -62,7 +59,7 @@ def choose_cost_function(
         # Arguments missing
         raise ValueError("Either travel_stw or travel_time must be provided.")
 
-    return cost_function
+    return jit(cost_function)
 
 
 def cost_function_constant_speed_time_invariant(
@@ -107,7 +104,7 @@ def cost_function_constant_speed_time_invariant(
     # Cost is the time to travel the segment
     dt = jnp.sqrt(d2 / (v2 - w2) + dw**2 / (v2 - w2) ** 2) - dw / (v2 - w2)
     # Current > speed -> infeasible path
-    dt = jnp.where(v2 <= w2, float("inf"), dt)
+    dt = lax.stop_gradient(jnp.where(v2 <= w2, 1e10, 0.0))
     t_total = jnp.sum(dt, axis=1)
 
     # Turn any possible infinite costs into 10x the highest value
