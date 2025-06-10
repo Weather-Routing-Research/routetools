@@ -13,7 +13,7 @@ from routetools.land import Land
 
 
 def run_param_configuration(
-    params: dict, path_jsons: str = "json", idx: int = 0, verbose: bool = True
+    params: dict, path_jsons: str = "json", idx: int = 0, verbose: bool = False
 ) -> None:
     """Run the optimization algorithm with the given parameters.
 
@@ -161,6 +161,8 @@ def build_dataframe(
     # land configuration
     df["is_nan"] = df["cost_cmaes"].isna()
     col_land = ["vectorfield", "water_level", "resolution", "random_seed"]
+    # Drop columns not in df
+    col_land = [col for col in col_land if col in df.columns]
     df_group = df.groupby(col_land)["is_nan"].mean()
     mask_wrong = ~((df_group == 0) | (df_group == 1))
     if mask_wrong.any():
@@ -171,8 +173,8 @@ def build_dataframe(
 
     # We need to fill NaNs in resolution and random_seed with -1
     # so we can group by them
-    df["resolution"] = df["resolution"].fillna(-1)
-    df["random_seed"] = df["random_seed"].fillna(-1)
+    for col in col_land:
+        df[col] = df[col].fillna(-1)
 
     # --------------------------------------------------------
     # EXTRA COLUMNS
@@ -186,19 +188,12 @@ def build_dataframe(
 
     # Group by "water_level", "resolution" and "random_seed"
     # Get the lowest "cost_fms" for each group
-    df_best = (
-        df.sort_values("cost_fms")
-        .groupby(["vectorfield", "water_level", "resolution", "random_seed"])
-        .first()
-        .reset_index()
-    )
+    df_best = df.sort_values("cost_fms").groupby(col_land).first().reset_index()
     # Add that best cost to the original dataframe
     df_best = df_best.rename(columns={"cost_fms": "cost_best"})
     df = df.merge(
-        df_best[
-            ["vectorfield", "water_level", "resolution", "random_seed", "cost_best"]
-        ],
-        on=["vectorfield", "water_level", "resolution", "random_seed"],
+        df_best[col_land + ["cost_best"]],
+        on=col_land,
         how="left",
     )
 
@@ -223,9 +218,7 @@ def build_dataframe(
 
 
 def main(
-    experiment: str = "noland",
-    path_results: str = "output",
-    gpu: bool = False,
+    experiment: str = "noland", path_results: str = "output", verbose: bool = False
 ):
     """Run the results.
 
@@ -236,12 +229,6 @@ def main(
     path_results : str, optional
         Path to the output folder, by default "output"
     """
-    # Set JAX platform to CPU or GPU
-    if gpu:
-        jax.config.update("jax_platforms", "gpu")
-    else:
-        jax.config.update("jax_platforms", "cpu")
-
     path_config = f"config_{experiment}.toml"
 
     # Generate the list of parameters
@@ -254,7 +241,7 @@ def main(
 
     # We cannot multiprocess with JAX, because JAX uses a threadpool
     for idx, params in enumerate(ls_params):
-        run_param_configuration(params, path_jsons, idx)
+        run_param_configuration(params, path_jsons, idx, verbose=verbose)
 
     # Build the dataframe once at the end
     build_dataframe(path_jsons, path_results=path_results, experiment=experiment)
