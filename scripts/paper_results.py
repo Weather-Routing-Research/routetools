@@ -9,6 +9,7 @@ import typer
 from routetools.cmaes import optimize
 from routetools.config import list_config_combinations
 from routetools.fms import optimize_fms
+from routetools.land import Land
 
 
 def run_param_configuration(
@@ -38,12 +39,27 @@ def run_param_configuration(
     )
     vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
 
-    # CMA-ES optimization algorithm
+    # Load the land
+    land = Land(
+        params["xlim"],
+        params["ylim"],
+        water_level=params["water_level"],
+        resolution=params.get("resolution", 1),
+        random_seed=params.get("random_seed", 0),
+        outbounds_is_land=params["outbounds_is_land"],
+    )
 
+    # Check if the land is valid
+    if land(params["src"]) or land(params["dst"]):
+        print(f"{idx}: Source or destination is on land.")
+        return
+
+    # CMA-ES optimization algorithm
     curve, dict_cmaes = optimize(
         vectorfield,
         params["src"],
         params["dst"],
+        land=land,
         penalty=params["penalty"],
         travel_stw=params.get("travel_stw"),
         travel_time=params.get("travel_time"),
@@ -59,10 +75,10 @@ def run_param_configuration(
     )
 
     # FMS variational algorithm (refinement)
-
     curve_fms, dict_fms = optimize_fms(
         vectorfield,
         curve=curve,
+        land=land,
         travel_stw=params.get("travel_stw"),
         travel_time=params.get("travel_time"),
         tolfun=params["refiner_tolfun"],
@@ -105,7 +121,9 @@ def run_param_configuration(
 
 
 def build_dataframe(
-    path_jsons: str = "json", path_results: str | None = None
+    path_jsons: str = "json",
+    path_results: str | None = None,
+    experiment: str = "noland",
 ) -> pd.DataFrame:
     """Build a dataframe with the results.
 
@@ -197,13 +215,15 @@ def build_dataframe(
 
     if path_results:
         df.to_csv(
-            path_results + "/results_noland.csv", index=False, float_format="%.6f"
+            path_results + f"/results_{experiment}.csv",
+            index=False,
+            float_format="%.6f",
         )
     return df
 
 
 def main(
-    path_config: str = "config_noland.toml",
+    experiment: str = "noland",
     path_results: str = "output",
     gpu: bool = False,
 ):
@@ -211,8 +231,8 @@ def main(
 
     Parameters
     ----------
-    path_config : str, optional
-        Path to the configuration file, by default "config_noland.toml"
+    experiment : str, optional
+        Name of the experiment, by default "noland"
     path_results : str, optional
         Path to the output folder, by default "output"
     """
@@ -222,12 +242,14 @@ def main(
     else:
         jax.config.update("jax_platforms", "cpu")
 
+    path_config = f"config_{experiment}.toml"
+
     # Generate the list of parameters
     ls_params = list_config_combinations(path_config)
 
     # Ensure the output folder exists
     os.makedirs(path_results, exist_ok=True)
-    path_jsons = path_results + "/noland"
+    path_jsons = path_results + "/" + experiment
     os.makedirs(path_jsons, exist_ok=True)
 
     # We cannot multiprocess with JAX, because JAX uses a threadpool
@@ -235,7 +257,7 @@ def main(
         run_param_configuration(params, path_jsons, idx)
 
     # Build the dataframe once at the end
-    build_dataframe(path_jsons, path_results=path_results)
+    build_dataframe(path_jsons, path_results=path_results, experiment=experiment)
 
 
 if __name__ == "__main__":
