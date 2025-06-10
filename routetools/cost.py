@@ -1,19 +1,19 @@
 from collections.abc import Callable
+from functools import partial
 
 import jax.numpy as jnp
 from jax import jit, lax
 
 
-def choose_cost_function(
+@partial(jit, static_argnames=("vectorfield", "travel_stw", "travel_time"))
+def cost_function(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
     ],
+    curve: jnp.ndarray,
     travel_stw: float | None = None,
     travel_time: float | None = None,
-) -> Callable[
-    [jnp.ndarray],
-    jnp.ndarray,
-]:
+) -> jnp.ndarray:
     """
     Choose the cost function based on the vector field properties.
 
@@ -30,38 +30,27 @@ def choose_cost_function(
         The cost function to use
     """
     # Choose which cost function to use
-    if travel_stw is not None:
-        if vectorfield.is_time_variant:
-
-            def cost_function(curve: jnp.ndarray) -> jnp.ndarray:
-                return cost_function_constant_speed_time_variant(
-                    vectorfield, curve, travel_stw
-                )
-        else:
-
-            def cost_function(curve: jnp.ndarray) -> jnp.ndarray:
-                return cost_function_constant_speed_time_invariant(
-                    vectorfield, curve, travel_stw
-                )
-    elif travel_time is not None:
-        if vectorfield.is_time_variant:
-            # Not supported
-            raise NotImplementedError(
-                "Time-variant cost function with fixed travel time is not implemented."
-            )
-        else:
-
-            def cost_function(curve: jnp.ndarray) -> jnp.ndarray:
-                return cost_function_constant_cost_time_invariant(
-                    vectorfield, curve, travel_time
-                )
+    if (travel_stw is not None) and vectorfield.is_time_variant:
+        return cost_function_constant_speed_time_variant(vectorfield, curve, travel_stw)
+    elif (travel_stw is not None) and (not vectorfield.is_time_variant):
+        return cost_function_constant_speed_time_invariant(
+            vectorfield, curve, travel_stw
+        )
+    elif (travel_time is not None) and vectorfield.is_time_variant:
+        # Not supported
+        raise NotImplementedError(
+            "Time-variant cost function with fixed travel time is not implemented."
+        )
+    elif (travel_time is not None) and (not vectorfield.is_time_variant):
+        return cost_function_constant_cost_time_invariant(
+            vectorfield, curve, travel_time
+        )
     else:
         # Arguments missing
         raise ValueError("Either travel_stw or travel_time must be provided.")
 
-    return jit(cost_function)
 
-
+@partial(jit, static_argnames=("vectorfield", "travel_stw"))
 def cost_function_constant_speed_time_invariant(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
@@ -104,7 +93,7 @@ def cost_function_constant_speed_time_invariant(
     # Cost is the time to travel the segment
     dt = jnp.sqrt(d2 / (v2 - w2) + dw**2 / (v2 - w2) ** 2) - dw / (v2 - w2)
     # Current > speed -> infeasible path
-    dt = lax.stop_gradient(jnp.where(v2 <= w2, 1e10, 0.0))
+    # dt = lax.stop_gradient(jnp.where(v2 <= w2, 1e10, 0.0))
     t_total = jnp.sum(dt, axis=1)
 
     # Turn any possible infinite costs into 10x the highest value
@@ -113,6 +102,7 @@ def cost_function_constant_speed_time_invariant(
     return cost
 
 
+@partial(jit, static_argnames=("vectorfield", "travel_stw"))
 def cost_function_constant_speed_time_variant(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
@@ -179,6 +169,7 @@ def cost_function_constant_speed_time_variant(
     return cost
 
 
+@partial(jit, static_argnames=("vectorfield", "travel_time"))
 def cost_function_constant_cost_time_invariant(
     vectorfield: Callable[
         [jnp.ndarray, jnp.ndarray, jnp.ndarray], tuple[jnp.ndarray, jnp.ndarray]
