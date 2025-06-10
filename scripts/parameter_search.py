@@ -3,11 +3,9 @@ import json
 import logging
 import os
 import shutil
-import time
 from typing import Any
 
 import jax
-import jax.numpy as jnp
 import pandas as pd
 import psutil
 import typer
@@ -101,7 +99,6 @@ def run_param_configuration(
         vectorfield = getattr(vectorfield_module, "vectorfield_" + vfname)
 
         # CMA-ES optimization algorithm
-        start = time.time()
 
         curve, dict_cmaes = optimize(
             vectorfield,
@@ -123,12 +120,8 @@ def run_param_configuration(
         )
         if land(curve).any():
             logger.info(f"{idx}: CMA-ES curve is on land")
-            cost = jnp.inf
-
-        comp_time = time.time() - start
 
         # FMS variational algorithm (refinement)
-        start = time.time()
 
         curve_fms, dict_fms = optimize_fms(
             vectorfield,
@@ -143,20 +136,18 @@ def run_param_configuration(
         )
         # FMS returns an extra dimension, we ignore that
         curve_fms = curve_fms[0]
-        cost_fms = dict_fms["cost"][0]  # FMS returns a list of costs
         if land(curve_fms).any():
             logger.info(f"{idx}: FMS curve is on land")
-            cost_fms = jnp.inf
-
-        comp_time_fms = time.time() - start
 
         # Store the results
         results = {
             **params,
-            "cost_cmaes": cost,
-            "comp_time_cmaes": comp_time,
-            "cost_fms": cost_fms.tolist(),
-            "comp_time_fms": comp_time_fms,
+            "cost_cmaes": dict_cmaes["cost"],
+            "comp_time_cmaes": dict_cmaes["comp_time"],
+            "niter_cmaes": dict_cmaes["niter"],
+            "cost_fms": dict_fms["cost"][0],  # FMS returns a list of costs
+            "comp_time_fms": dict_fms["comp_time"],
+            "niter_fms": dict_fms["niter"],
             "curve_cmaes": curve.tolist(),
             "curve_fms": curve_fms.tolist(),
         }
