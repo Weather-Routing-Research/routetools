@@ -75,7 +75,7 @@ def run_single_simulation(
     vectorfield_fun = getattr(vectorfield_module, "vectorfield_" + vectorfield)
 
     # CMA-ES optimization algorithm
-    curve_cmaes, cost_cmaes = optimize(
+    curve_cmaes, dict_cmaes = optimize(
         vectorfield_fun,
         src,
         dst,
@@ -98,7 +98,7 @@ def run_single_simulation(
     curve_straight = jnp.linspace(src, dst, num_points)
 
     # FMS variational algorithm (refinement)
-    curve_fms, cost_fms = optimize_fms(
+    curve_fms, dict_fms = optimize_fms(
         vectorfield_fun,
         curve=curve_straight,
         travel_stw=travel_stw,
@@ -109,7 +109,9 @@ def run_single_simulation(
         verbose=True,
     )
     # FMS returns an extra dimensions, we ignore that
-    curve_fms, cost_fms = curve_fms[0], cost_fms[0]
+    curve_fms, cost_fms = curve_fms[0]
+    cost_cmaes = dict_cmaes["cost"]
+    cost_fms = dict_fms["cost"][0]  # FMS returns a list of costs
 
     # Plot them
     fig, ax = plot_curve(

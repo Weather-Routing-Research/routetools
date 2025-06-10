@@ -195,7 +195,7 @@ def optimize(
     maxfevals: int = 25000,
     seed: float = jnp.nan,
     verbose: bool = True,
-) -> tuple[jnp.ndarray, float]:
+) -> tuple[jnp.ndarray, dict]:
     """
     Solve the vessel routing problem for a given vector field.
 
@@ -280,7 +280,13 @@ def optimize(
 
     Xbest = es.best.x[None, :]
     curve_best = control_to_curve(Xbest, src, dst, L=L, num_pieces=num_pieces)[0, ...]
-    return curve_best, es.best.f
+
+    dict_cmaes = {
+        "cost": es.best.f,
+        "niter": es.countiter,
+        "comp_time": int(round(time.time() - start)),
+    }
+    return curve_best, dict_cmaes
 
 
 def optimize_with_increasing_penalization(

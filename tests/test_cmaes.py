@@ -34,7 +34,7 @@ def test_cmaes_constant_speed(
     expected: float,
     L: int = 64,
 ):
-    curve, cost = optimize(
+    curve, dict_cmaes = optimize(
         vectorfield,
         src=src,
         dst=dst,
@@ -47,6 +47,7 @@ def test_cmaes_constant_speed(
     assert isinstance(curve, jnp.ndarray)
     assert curve.shape[0] == L
     assert curve.shape[1] == 2
+    cost = dict_cmaes["cost"]
     assert isinstance(cost, float)
     assert cost <= expected, f"cost: {cost} > expected: {expected}"
 
@@ -69,7 +70,7 @@ def test_cmaes_constant_time(
     expected: float,
     L: int = 64,
 ):
-    curve, cost = optimize(
+    curve, dict_cmaes = optimize(
         vectorfield,
         src=src,
         dst=dst,
@@ -82,6 +83,7 @@ def test_cmaes_constant_time(
     assert isinstance(curve, jnp.ndarray)
     assert curve.shape[0] == L
     assert curve.shape[1] == 2
+    cost = dict_cmaes["cost"]
     assert isinstance(cost, float)
     assert cost <= expected, f"cost: {cost} > expected: {expected}"
 
@@ -110,7 +112,7 @@ def test_cmaes_constant_speed_with_land(
     ylim = sorted((src[1], dst[1]))
     land = Land(xlim, ylim, random_seed=1, resolution=10)
 
-    curve, cost = optimize(
+    curve, dict_cmaes = optimize(
         vectorfield,
         src=src,
         dst=dst,
@@ -123,7 +125,7 @@ def test_cmaes_constant_speed_with_land(
     )
     assert isinstance(curve, jnp.ndarray)
     assert curve.shape[1] == 2
-    assert isinstance(cost, float)
+    assert isinstance(dict_cmaes["cost"], float)
 
 
 @pytest.mark.parametrize(
@@ -158,7 +160,7 @@ def test_cmaes_constant_speed_piecewise(
     L: int,
     num_pieces: int,
 ):
-    curve, cost = optimize(
+    curve, dict_cmaes = optimize(
         vectorfield,
         src=src,
         dst=dst,
@@ -171,6 +173,7 @@ def test_cmaes_constant_speed_piecewise(
         tolfun=0.1,
         seed=1,
     )
+    cost = dict_cmaes["cost"]
     assert isinstance(curve, jnp.ndarray)
     assert curve.shape[0] == L
     assert curve.shape[1] == 2

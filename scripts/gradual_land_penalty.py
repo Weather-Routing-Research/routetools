@@ -87,7 +87,7 @@ def run_param_configuration(
     # FMS variational algorithm (refinement)
     start = time.time()
     if not land(ls_curve[-1]).any():
-        curve_fms, cost_fms = optimize_fms(
+        curve_fms, dict_fms = optimize_fms(
             vectorfield,
             curve=ls_curve[-1],
             land=land,
@@ -98,7 +98,8 @@ def run_param_configuration(
             verbose=True,
         )
         # FMS returns an extra dimensions, we ignore that
-        curve_fms, cost_fms = curve_fms[0], cost_fms[0]
+        curve_fms = curve_fms[0]
+        cost_fms = dict_fms["cost"][0]  # FMS returns a list of costs
         ls_curve.append(curve_fms)
         ls_cost.append(cost_fms)
         ls_name.append("FMS")

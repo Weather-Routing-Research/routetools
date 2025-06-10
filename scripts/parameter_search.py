@@ -51,7 +51,7 @@ def log_system_info():
     logger.info(f"CPU Usage: {cpu_percent:.1f}% (freq: {cpu_freq.current:.0f} MHz)")
     logger.info(f"Memory Usage (RSS): {mem_info.rss / (1024**3):.2f} GB")
     logger.info(
-        f"Disk Usage: {used/(1024**3):.2f} GB / {total/(1024**3):.2f} GB "
+        f"Disk Usage: {used / (1024**3):.2f} GB / {total / (1024**3):.2f} GB "
         f"({percent:.2f}% used)"
     )
     logger.info("----------------------------------------")
@@ -103,7 +103,7 @@ def run_param_configuration(
         # CMA-ES optimization algorithm
         start = time.time()
 
-        curve, cost = optimize(
+        curve, dict_cmaes = optimize(
             vectorfield,
             params["src"],
             params["dst"],
@@ -130,7 +130,7 @@ def run_param_configuration(
         # FMS variational algorithm (refinement)
         start = time.time()
 
-        curve_fms, cost_fms = optimize_fms(
+        curve_fms, dict_fms = optimize_fms(
             vectorfield,
             curve=curve,
             land=land,
@@ -142,7 +142,8 @@ def run_param_configuration(
             verbose=False,
         )
         # FMS returns an extra dimension, we ignore that
-        curve_fms, cost_fms = curve_fms[0], cost_fms[0]
+        curve_fms = curve_fms[0]
+        cost_fms = dict_fms["cost"][0]  # FMS returns a list of costs
         if land(curve_fms).any():
             logger.info(f"{idx}: FMS curve is on land")
             cost_fms = jnp.inf

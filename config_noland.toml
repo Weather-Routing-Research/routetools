@@ -1,0 +1,38 @@
+[vectorfield.fourvortices]
+src = [0, 0]
+dst = [6, 2]
+xlim = [0, 6]
+ylim = [-1, 6]
+travel_stw = 1
+
+[vectorfield.swirlys]
+src = [0, 0]
+dst = [6, 5]
+xlim = [0, 6]
+ylim = [-1, 6]
+travel_time = 30
+
+[land]
+water_level = [1.0]
+resolution = [3]
+random_seed = [0]
+penalty = [100]
+penalty_init = [0]
+penalty_increment = [1]
+maxfevals = [5]
+outbounds_is_land = [false]
+
+[optimizer.cmaes]
+popsize = [500]
+L = [200]
+num_pieces = [1]
+K = [3, 6, 9, 12, 15, 18]
+sigma0 = [0.5, 1, 1.5, 2, 2.5, 3]
+tolfun = [1e-3]
+damping = [1.0]
+maxfevals = [500000]
+
+[refiner.fms]
+tolfun = [1e-6]
+damping = [0.5]
+maxfevals = [500000]

@@ -110,7 +110,7 @@ def run_single_simulation(
     # CMA-ES optimization algorithm
     start = time.time()
 
-    curve_cmaes, cost_cmaes = optimize(
+    curve_cmaes, _ = optimize(
         vectorfield_fun,
         src,
         dst,
@@ -136,7 +136,7 @@ def run_single_simulation(
     # FMS variational algorithm (refinement)
     start = time.time()
 
-    curve_fms, cost_fms = optimize_fms(
+    curve_fms, dict_fms = optimize_fms(
         vectorfield_fun,
         curve=curve_cmaes,
         land=land,
@@ -151,7 +151,7 @@ def run_single_simulation(
     time_fms = time.time() - start
 
     # FMS returns an extra dimensions, we ignore that
-    curve_fms, cost_fms = curve_fms[0], cost_fms[0]
+    curve_fms = curve_fms[0]
 
     if land(curve_fms).any():
         print("The curve is on land")

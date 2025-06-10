@@ -79,7 +79,7 @@ def main(w: float = 2, maxfevals: int = 50, damping: float = 0.1, frames: int = 
         """
         nonlocal routes
         # Run the FMS for one step
-        routes, costs = optimize_fms(
+        routes, dict_fms = optimize_fms(
             vectorfield_zero,
             curve=routes,
             damping=damping,
@@ -88,9 +88,10 @@ def main(w: float = 2, maxfevals: int = 50, damping: float = 0.1, frames: int = 
             tolfun=1e-11,
             verbose=False,
         )
+        costs = dict_fms["cost"]
         for idx in range(4):
             ls_lines[idx].set_data(routes[idx, :, 0], routes[idx, :, 1])
-            ls_txt[idx][0].set_text(f"Iteration: {frame*maxfevals}")
+            ls_txt[idx][0].set_text(f"Iteration: {frame * maxfevals}")
             ls_txt[idx][1].set_text(f"Cost: {costs[idx]:.2f}")
         return ls_lines + [txt for txt, _ in ls_txt] + [txt for _, txt in ls_txt]
 

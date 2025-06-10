@@ -126,7 +126,7 @@ def optimize_fms(
     maxfevals: int = 5000,
     seed: int = 0,
     verbose: bool = True,
-) -> tuple[jnp.ndarray, jnp.ndarray]:
+) -> tuple[jnp.ndarray, dict]:
     """
     Optimize a curve using the FMS algorithm.
 
@@ -276,7 +276,13 @@ def optimize_fms(
         print("FMS - Optimization time:", time.time() - start)
         print("FMS - Fuel cost:", cost_now.min())
 
-    return curve, cost_now
+    dict_fms = {
+        "cost": cost_now.tolist(),
+        "niter": idx,
+        "comp_time": int(round(time.time() - start)),
+    }
+
+    return curve, dict_fms
 
 
 def main(gpu: bool = True, optimize_time: bool = False) -> None:
@@ -294,7 +300,7 @@ def main(gpu: bool = True, optimize_time: bool = False) -> None:
     src = jnp.array([0, 0])
     dst = jnp.array([6, 2])
 
-    curve, cost = optimize_fms(
+    curve, _ = optimize_fms(
         vectorfield_fourvortices,
         src=src,
         dst=dst,
