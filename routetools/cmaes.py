@@ -195,7 +195,7 @@ def optimize(
     maxfevals: int = 25000,
     seed: float = jnp.nan,
     verbose: bool = True,
-) -> tuple[jnp.ndarray, dict]:
+) -> tuple[jnp.ndarray, dict[str, Any]]:
     """
     Solve the vessel routing problem for a given vector field.
 

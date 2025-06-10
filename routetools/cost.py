@@ -15,34 +15,38 @@ def cost_function(
     travel_time: float | None = None,
 ) -> jnp.ndarray:
     """
-    Choose the cost function based on the vector field properties.
+    Compute the cost of a batch of paths navigating over a vector field.
 
-    This function is a placeholder for future logic that might depend on the vector field.
+    This function selects the appropriate cost function based on the
+    parameters provided. It can handle time-invariant and time-variant vector
+    fields, as well as fixed speed through water (STW) or fixed travel time.
 
     Parameters
     ----------
     vectorfield : Callable
-        A function that returns the horizontal and vertical components of the vector
+        A function that returns the horizontal and vertical components of the
+        vector field.
 
     Returns
     -------
-    Callable
-        The cost function to use
+    jnp.ndarray
+        A batch of scalars (vector of shape B) representing the cost for each path.
     """
+    is_time_variant: bool = getattr(vectorfield, "is_time_variant", False)
     # Choose which cost function to use
-    if (travel_stw is not None) and vectorfield.is_time_variant:
-        return cost_function_constant_speed_time_variant(vectorfield, curve, travel_stw)
-    elif (travel_stw is not None) and (not vectorfield.is_time_variant):
-        return cost_function_constant_speed_time_invariant(
+    if (travel_stw is not None) and is_time_variant:
+        return cost_function_constant_speed_time_variant(vectorfield, curve, travel_stw)  # type: ignore[no-any-return]
+    elif (travel_stw is not None) and (not is_time_variant):
+        return cost_function_constant_speed_time_invariant(  # type: ignore[no-any-return]
             vectorfield, curve, travel_stw
         )
-    elif (travel_time is not None) and vectorfield.is_time_variant:
+    elif (travel_time is not None) and is_time_variant:
         # Not supported
         raise NotImplementedError(
             "Time-variant cost function with fixed travel time is not implemented."
         )
-    elif (travel_time is not None) and (not vectorfield.is_time_variant):
-        return cost_function_constant_cost_time_invariant(
+    elif (travel_time is not None) and (not is_time_variant):
+        return cost_function_constant_cost_time_invariant(  # type: ignore[no-any-return]
             vectorfield, curve, travel_time
         )
     else:
