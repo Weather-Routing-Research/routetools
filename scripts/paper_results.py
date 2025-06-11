@@ -32,6 +32,12 @@ def run_param_configuration(
     if os.path.exists(path_json):
         return
 
+    # Initialize the results dictionary with the parameters
+    results = {**params}
+    # src and dst are jnp arrays, convert them to lists
+    results["src"] = params["src"].tolist()
+    results["dst"] = params["dst"].tolist()
+
     # Load the vectorfield function
     vfname = params["vectorfield"]
     vectorfield_module = __import__(
@@ -52,6 +58,9 @@ def run_param_configuration(
     # Check if the land is valid
     if land(params["src"]) or land(params["dst"]):
         print(f"{idx}: Source or destination is on land.")
+        # Save the results in a JSON file
+        with open(path_json, "w") as f:
+            json.dump(results, f, indent=4)
         return
 
     # CMA-ES optimization algorithm
@@ -74,6 +83,12 @@ def run_param_configuration(
         verbose=verbose,
     )
 
+    # Check if the route crosses land
+    if land(curve).any():
+        print(f"{idx}: CMA-ES solution crosses land.")
+        # Store NaN as cost
+        dict_cmaes["cost"] = float("nan")
+
     # FMS variational algorithm (refinement)
     curve_fms, dict_fms = optimize_fms(
         vectorfield,
@@ -89,22 +104,25 @@ def run_param_configuration(
     # FMS returns an extra dimension, we ignore that
     curve_fms = curve_fms[0]
 
-    # Store the results
-    results = {
-        **params,
-        "cost_cmaes": dict_cmaes["cost"],
-        "comp_time_cmaes": dict_cmaes["comp_time"],
-        "niter_cmaes": dict_cmaes["niter"],
-        "cost_fms": dict_fms["cost"][0],  # FMS returns a list of costs
-        "comp_time_fms": dict_fms["comp_time"],
-        "niter_fms": dict_fms["niter"],
-        "curve_cmaes": curve.tolist(),
-        "curve_fms": curve_fms.tolist(),
-    }
+    # Check if the route crosses land
+    if land(curve_fms).any():
+        print(f"{idx}: FMS solution crosses land.")
+        # Store NaN as cost
+        dict_fms["cost"] = [float("nan")]
 
-    # src and dst are jnp arrays, convert them to lists
-    results["src"] = params["src"].tolist()
-    results["dst"] = params["dst"].tolist()
+    # Update the results dictionary with the optimization results
+    results.update(
+        {
+            "cost_cmaes": dict_cmaes["cost"],
+            "comp_time_cmaes": dict_cmaes["comp_time"],
+            "niter_cmaes": dict_cmaes["niter"],
+            "cost_fms": dict_fms["cost"][0],  # FMS returns a list of costs
+            "comp_time_fms": dict_fms["comp_time"],
+            "niter_fms": dict_fms["niter"],
+            "curve_cmaes": curve.tolist(),
+            "curve_fms": curve_fms.tolist(),
+        }
+    )
 
     # Save the results in a JSON file
     with open(path_json, "w") as f:

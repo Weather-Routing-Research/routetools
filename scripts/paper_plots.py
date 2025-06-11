@@ -154,13 +154,7 @@ def run_single_simulation(
 
 
 def plot_best_no_land(
-    path_csv: str = "./output/results_noland.csv",
-    folder: str = "./output/",
-    L: int = 200,
-    K: int = 12,
-    popsize: int = 500,
-    sigma0: int = 2,
-    num_pieces: int = 1,
+    path_csv: str = "./output/results_noland.csv", folder: str = "./output/"
 ):
     """Generate plots for the best examples without land avoidance.
 
@@ -172,19 +166,9 @@ def plot_best_no_land(
     """
     df = pd.read_csv(path_csv)
 
-    mask = (
-        (df["water_level"] == 1.0)
-        & (df["L"] == L)
-        & (df["K"] == K)
-        & (df["popsize"] == popsize)
-        & (df["sigma0"] == sigma0)
-        & (df["num_pieces"] == num_pieces)
-    )
-
     # Filter the rows with highest "gain_fms", grouped by vectorfield
     df_filtered = (
-        df[mask]
-        .groupby("vectorfield")[["vectorfield", "json", "gain_fms"]]
+        df.groupby("vectorfield")[["vectorfield", "json", "gain_fms"]]
         .apply(lambda x: x.nlargest(1, "gain_fms"))
         .reset_index(drop=True)
         .sort_values("gain_fms", ascending=False)
@@ -202,13 +186,7 @@ def plot_best_no_land(
 
 
 def plot_biggest_difference(
-    path_csv: str = "./output/results_land.csv",
-    folder: str = "./output/",
-    L: int = 200,
-    K: int = 12,
-    popsize: int = 500,
-    sigma0: int = 2,
-    num_pieces: int = 1,
+    path_csv: str = "./output/results_noland.csv", folder: str = "./output/"
 ):
     """Generate plots for the examples with the biggest FMS savings.
 
@@ -220,20 +198,10 @@ def plot_biggest_difference(
     """
     df = pd.read_csv(path_csv)
 
-    mask = (
-        (df["gain_fms"] < 20)
-        & (df["L"] == L)
-        & (df["K"] == K)
-        & (df["popsize"] == popsize)
-        & (df["sigma0"] == sigma0)
-        & (df["num_pieces"] == num_pieces)
-    )
-
     # Filter the rows with highest "gain_fms", grouped by vectorfield
     df_filtered = (
-        df[mask]
-        .groupby("vectorfield")[["json", "vectorfield", "gain_fms"]]
-        .apply(lambda x: x.nlargest(5, "gain_fms"))
+        df.groupby("vectorfield")[["json", "vectorfield", "gain_fms"]]
+        .apply(lambda x: x.nlargest(2, "gain_fms"))
         .reset_index(drop=True)
         .sort_values("gain_fms", ascending=False)
     )
@@ -242,11 +210,63 @@ def plot_biggest_difference(
     for idx in df_filtered.index:
         row = df_filtered.iloc[idx]
         json_id = int(row["json"])
-        vf = row["vectorfield"]
         print(f"Biggest FMS savings: processing {json_id}...")
-        fig, ax = plot_route_from_json(f"{folder}/land/{json_id:06d}.json")
-        fig.savefig(f"{folder}/biggest_fms_{vf}_{idx}.png")
+        fig, ax = plot_route_from_json(f"{folder}/noland/{json_id:06d}.json")
+        fig.savefig(f"{folder}/biggest_fms_{idx}.png")
         plt.close(fig)
+
+
+def plot_land_avoidance(
+    path_csv: str = "./output/results_land.csv", folder: str = "./output/"
+):
+    """
+    Generate and save plots for land avoidance analysis based on simulation results.
+
+    This function reads simulation results from a CSV file, identifies the worst
+    examples based on the cost function, and generates plots to visualize the land
+    avoidance behavior for different water levels, resolutions, and random seeds.
+
+    Parameters
+    ----------
+    folder : str, optional
+        The directory containing the results CSV file and JSON files,
+        by default "output".
+    """
+    # Read the results CSV file
+    df_land = pd.read_csv(path_csv)
+    # Mask the three cases we are working with
+    mask_easy = (df_land["resolution"] == 3) & (df_land["water_level"] == 0.9)
+    mask_medium = (df_land["resolution"] == 4) & (df_land["water_level"] == 0.8)
+    mask_hard = (df_land["resolution"] == 5) & (df_land["water_level"] == 0.7)
+
+    # Create a new column "complexity" to categorize the experiments
+    df_land["complexity"] = np.nan
+    df_land.loc[mask_easy, "complexity"] = 1
+    df_land.loc[mask_medium, "complexity"] = 2
+    df_land.loc[mask_hard, "complexity"] = 3
+
+    # Drop the experiments not belonging to any of these categories
+    df_land = df_land.dropna(subset=["complexity"])
+
+    # Generate plots for the worst ten examples
+    idx = 0
+    for complexity, df_sub in df_land.groupby("complexity"):
+        # Sort by gain
+        df_sub = df_sub.sort_values("gain_fms", ascending=True)
+        # Take the worst three examples
+        df_worst = df_sub.tail(3)
+        for _, row in df_worst.iterrows():
+            # Extract the configuration parameters
+
+            # Load the JSON file for the identified example
+            json_id = int(row["json"])
+            print(f"Land avoidance: processing {json_id}...")
+
+            # Print what was the CMA-ES configuration
+            fig, ax = plot_route_from_json(f"{folder}/land/{json_id:06d}.json")
+            fig.savefig(f"{folder}/land_avoidance_{idx}.png")
+            plt.close(fig)
+            idx += 1
 
 
 def experiment_parameter_sensitivity(
@@ -499,11 +519,13 @@ def experiment_land_complexity(
 def main(folder: str = "./output/"):
     """Run the experiments and plot the results."""
     print("---\nSINGLE SIMULATION\n---")
-    run_single_simulation(path_img=folder)
+    # run_single_simulation(path_img=folder)
     print("\n---\nBEST EXAMPLES WITHOUT LAND AVOIDANCE\n---")
-    plot_best_no_land(folder=folder)
+    # plot_best_no_land(folder=folder)
     print("\n---\nBIGGEST FMS SAVINGS\n---")
     plot_biggest_difference(folder=folder)
+    print("\n---\nLAND AVOIDANCE ANALYSIS\n---")
+    plot_land_avoidance(folder=folder)
     print("\n---\nPARAMETER SENSITIVITY EXPERIMENTS\n---")
     experiment_parameter_sensitivity(folder=folder)
     print("\n---\nLAND COMPLEXITY EXPERIMENTS\n---")
