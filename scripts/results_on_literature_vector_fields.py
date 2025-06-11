@@ -91,6 +91,7 @@ def run_single_simulation(
         maxfevals=cmaes_maxfevals,
         seed=cmaes_seed,
     )
+    cost_cmaes = dict_cmaes["cost"]
 
     # Create a straight line from source to destination,
     # with as many points as the CMA-ES curve
@@ -109,15 +110,14 @@ def run_single_simulation(
         verbose=True,
     )
     # FMS returns an extra dimensions, we ignore that
-    curve_fms, cost_fms = curve_fms[0]
-    cost_cmaes = dict_cmaes["cost"]
+    curve_fms = curve_fms[0]
     cost_fms = dict_fms["cost"][0]  # FMS returns a list of costs
 
     # Plot them
     fig, ax = plot_curve(
         vectorfield_fun,
         [curve_cmaes, curve_fms],
-        ls_name=["CMA-ES", "FMS only"],
+        ls_name=["CMA-ES", "FMS"],
         ls_cost=[cost_cmaes, cost_fms],
         xlim=land_xlim,
         ylim=land_ylim,

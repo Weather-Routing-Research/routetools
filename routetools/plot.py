@@ -11,6 +11,12 @@ from matplotlib.figure import Figure
 
 from routetools.land import Land
 
+DICT_COLOR = {
+    "BERS": "blue",
+    "CMA-ES": "orange",
+    "FMS": "green",
+}
+
 
 def plot_curve(
     vectorfield: Callable[
@@ -90,8 +96,15 @@ def plot_curve(
         if len(ls_cost) == len(ls_curve):
             c = ls_cost[idx]
             label += f" ({cost} = {c:.3f})"
+        color = DICT_COLOR.get(label)
         ax.plot(
-            curve[:, 0], curve[:, 1], marker="o", markersize=2, label=label, zorder=2
+            curve[:, 0],
+            curve[:, 1],
+            marker="o",
+            markersize=2,
+            label=label,
+            zorder=2,
+            color=color,
         )
         # Update limits according to the curve
         xlim = (
@@ -152,7 +165,7 @@ def plot_route_from_json(path_json: str) -> tuple[Figure, Axes]:
 
     # Get the data
     ls_curve = [jnp.array(data["curve_cmaes"]), jnp.array(data["curve_fms"])]
-    ls_name = ["CMA-ES", "FMS"]
+    ls_name = ["CMA-ES", "BERS"]
     ls_cost = [data["cost_cmaes"], data["cost_fms"]]
 
     # Load the vectorfield function

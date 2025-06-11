@@ -269,7 +269,7 @@ def optimize_fms(
         )
         delta = 1 - cost_now / cost_old
         idx += 1
-        if verbose and (idx % 100 == 0 or idx == 1):
+        if verbose and (idx % 500 == 0 or idx == 1):
             print(f"FMS - Iteration {idx}, cost: {cost_now.min():.4f}")
 
     if verbose:
