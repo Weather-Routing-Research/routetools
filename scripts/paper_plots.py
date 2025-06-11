@@ -20,6 +20,16 @@ def experiment_parameter_sensitivity(
     # Read the CSV file containing the results of the experiments
     df_noland = pd.read_csv(path_csv)
 
+    # If any "percterr_cmaes" is equal or higher than 1e10, we warn the user and drop it
+    if (df_noland["percterr_cmaes"] >= 1e10).any():
+        print(
+            "Warning: Some percentage errors for CMA-ES are equal or higher than 1e10. "
+            "These will be dropped from the analysis."
+        )
+        df_noland = df_noland[df_noland["percterr_cmaes"] < 1e10]
+        # Same with "percterr_fms"
+        df_noland = df_noland[df_noland["percterr_fms"] < 1e10]
+
     df_noland["gain_fms"] = df_noland["percterr_cmaes"] - df_noland["percterr_fms"]
 
     # We will group results by "K", "sigma0" and compute their average "percterr_cmaes"
@@ -50,6 +60,8 @@ def experiment_parameter_sensitivity(
         cmap="viridis_r",
         edgecolors="k",
         linewidths=0.5,
+        vmin=0,
+        vmax=100,  # Set limits for the color scale
     )
     # Add the numbers in each cell
     for (i, j), val in np.ndenumerate(
@@ -106,6 +118,8 @@ def experiment_parameter_sensitivity(
         cmap="viridis",
         edgecolors="k",
         linewidths=0.5,
+        vmin=0,
+        vmax=100,  # Set limits for the color scale
     )
     # Add the numbers in each cell
     for (i, j), val in np.ndenumerate(
@@ -162,6 +176,8 @@ def experiment_parameter_sensitivity(
         cmap="viridis_r",
         edgecolors="k",
         linewidths=0.5,
+        vmin=0,
+        vmax=100,  # Set limits for the color scale
     )
     # Add the numbers in each cell
     for (i, j), val in np.ndenumerate(
