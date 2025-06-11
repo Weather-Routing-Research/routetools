@@ -83,11 +83,26 @@ def run_param_configuration(
         verbose=verbose,
     )
 
+    # Update the results dictionary with the optimization results
+    results.update(
+        {
+            "cost_cmaes": dict_cmaes["cost"],
+            "comp_time_cmaes": dict_cmaes["comp_time"],
+            "niter_cmaes": dict_cmaes["niter"],
+            "curve_cmaes": curve.tolist(),
+        }
+    )
+
     # Check if the route crosses land
     if land(curve).any():
         print(f"{idx}: CMA-ES solution crosses land.")
         # Store NaN as cost
-        dict_cmaes["cost"] = float("nan")
+        results["cost_cmaes"] = float("nan")
+        # Save the results in a JSON file
+        with open(path_json, "w") as f:
+            json.dump(results, f, indent=4)
+        # Stop here, no need to run FMS
+        return
 
     # FMS variational algorithm (refinement)
     curve_fms, dict_fms = optimize_fms(
@@ -104,22 +119,12 @@ def run_param_configuration(
     # FMS returns an extra dimension, we ignore that
     curve_fms = curve_fms[0]
 
-    # Check if the route crosses land
-    if land(curve_fms).any():
-        print(f"{idx}: FMS solution crosses land.")
-        # Store NaN as cost
-        dict_fms["cost"] = [float("nan")]
-
     # Update the results dictionary with the optimization results
     results.update(
         {
-            "cost_cmaes": dict_cmaes["cost"],
-            "comp_time_cmaes": dict_cmaes["comp_time"],
-            "niter_cmaes": dict_cmaes["niter"],
             "cost_fms": dict_fms["cost"][0],  # FMS returns a list of costs
             "comp_time_fms": dict_fms["comp_time"],
             "niter_fms": dict_fms["niter"],
-            "curve_cmaes": curve.tolist(),
             "curve_fms": curve_fms.tolist(),
         }
     )
