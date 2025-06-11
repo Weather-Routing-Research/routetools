@@ -96,7 +96,14 @@ def plot_curve(
         if len(ls_cost) == len(ls_curve):
             c = ls_cost[idx]
             label += f" ({cost} = {c:.3f})"
-        color = DICT_COLOR.get(label)
+        # Assign a color based on the label
+        for key, color in DICT_COLOR.items():
+            if label.startswith(key):
+                color = DICT_COLOR[key]
+                break
+        else:
+            color = None
+        # Plot the curve
         ax.plot(
             curve[:, 0],
             curve[:, 1],
