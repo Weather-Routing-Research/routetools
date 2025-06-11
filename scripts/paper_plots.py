@@ -3,6 +3,14 @@ import numpy as np
 import pandas as pd
 import typer
 
+COST_LITERATURE = {
+    "circular": 1.98,
+    "fourvortices": 8.95,
+    "doublegyre": 1.01,
+    "techy": 1.03,
+    "swirlys": 5.73,
+}
+
 
 def experiment_parameter_sensitivity(
     path_csv: str = "./output/results_noland.csv", folder: str = "./output/"
@@ -26,11 +34,22 @@ def experiment_parameter_sensitivity(
             "Warning: Some percentage errors for CMA-ES are equal or higher than 1e10. "
             "These will be dropped from the analysis."
         )
-        df_noland = df_noland[df_noland["percterr_cmaes"] < 1e10]
+        df_noland = df_noland[df_noland["cost_cmaes"] < 1e10]
         # Same with "percterr_fms"
-        df_noland = df_noland[df_noland["percterr_fms"] < 1e10]
+        df_noland = df_noland[df_noland["cost_fms"] < 1e10]
 
-    df_noland["gain_fms"] = df_noland["percterr_cmaes"] - df_noland["percterr_fms"]
+    # Assign literature cost using "vectorfield"
+    df_noland["cost_reference"] = df_noland["vectorfield"].map(COST_LITERATURE)
+
+    # Compute percentage errors, clip at 0%
+    df_noland["percterr_cmaes"] = (
+        df_noland["cost_cmaes"] / df_noland["cost_reference"] * 100 - 100
+    ).clip(lower=0)
+    df_noland["percterr_fms"] = (
+        df_noland["cost_fms"] / df_noland["cost_reference"] * 100 - 100
+    ).clip(lower=0)
+
+    df_noland["gain_fms"] = 100 - df_noland["cost_fms"] / df_noland["cost_cmaes"] * 100
 
     # We will group results by "K", "sigma0" and compute their average "percterr_cmaes"
     df_noland = (
@@ -46,177 +65,105 @@ def experiment_parameter_sensitivity(
         .reset_index()
     )
 
-    # GRAPH 1
-    # Plot a heatmap where:
-    # x-axis: "K" (number of control points for Bézier curve)
-    # y-axis: "sigma0" (standard deviation of the CMA-ES distribution)
-    # color: "avg_percterr_cmaes" (average percentage of error)
-    # We place the number on each cell of the heatmap, using white letters
-    # Below each number, we add the computation time too
-    plt.figure(figsize=(8, 6))
-    ax = plt.gca()  # Get current axes
-    heatmap = ax.pcolor(
-        df_noland.pivot(index="sigma0", columns="K", values="avg_percterr_cmaes"),
-        cmap="viridis_r",
-        edgecolors="k",
-        linewidths=0.5,
-        vmin=0,
-        vmax=100,  # Set limits for the color scale
-    )
-    # Add the numbers in each cell
-    for (i, j), val in np.ndenumerate(
-        df_noland.pivot(index="sigma0", columns="K", values="avg_percterr_cmaes")
+    def _helper_experiment_parameter_sensitivity(
+        col1: str,
+        col2: str,
+        cmap: str,
+        vmin: float = 0,
+        vmax: float = 100,
+        title: str = "",
     ):
-        ax.text(
-            j + 0.5,
-            i + 0.5,
-            f"{val:.2f}%",
-            ha="center",
-            va="center",
-            color="white",
-            fontsize=10,
+        # Plot a heatmap where:
+        # x-axis: "K" (number of control points for Bézier curve)
+        # y-axis: "sigma0" (standard deviation of the CMA-ES distribution)
+        # color: col1
+        # We place the number on each cell of the heatmap, using white letters
+        # Below each number, we add the computation time too (col2)
+        plt.figure(figsize=(8, 6))
+        ax = plt.gca()  # Get current axes
+        heatmap = ax.pcolor(
+            df_noland.pivot(index="sigma0", columns="K", values=col1),
+            cmap=cmap,
+            edgecolors="k",
+            linewidths=0.5,
+            vmin=vmin,
+            vmax=vmax,  # Set limits for the color scale
         )
-        # Add computation time below the percentage
-        comp_time_cmaes = df_noland.loc[
-            (df_noland["K"] == df_noland["K"].unique()[j])
-            & (df_noland["sigma0"] == df_noland["sigma0"].unique()[i]),
-            "avg_comp_time_cmaes",
-        ].values[0]
-        ax.text(
-            j + 0.5,
-            i + 0.3,
-            f"CT: {comp_time_cmaes:.2f}s",
-            ha="center",
-            va="center",
-            color="black",
-            fontsize=8,
-        )
-    # Set the ticks and labels for the axes
-    ax.set_xticks(np.arange(len(df_noland["K"].unique())) + 0.5)
-    ax.set_xticklabels(df_noland["K"].unique())
-    ax.set_yticks(np.arange(len(df_noland["sigma0"].unique())) + 0.5)
-    ax.set_yticklabels(df_noland["sigma0"].unique())
-    ax.set_xlabel("Number of Control Points (K)")
-    ax.set_ylabel("Standard Deviation of CMA-ES (sigma0)")
-    ax.set_title("Parameter Sensitivity of CMA-ES + Bézier")
-    plt.colorbar(heatmap, label="Average Percentage of Error")
-    plt.tight_layout()
+        # Add the numbers in each cell
+        for (i, j), val in np.ndenumerate(
+            df_noland.pivot(index="sigma0", columns="K", values=col1)
+        ):
+            ax.text(
+                j + 0.5,
+                i + 0.5,
+                f"{val:.2f}%",
+                ha="center",
+                va="center",
+                color="black",
+                fontsize=10,
+            )
+            # Add computation time below the percentage
+            ct = df_noland.loc[
+                (df_noland["K"] == df_noland["K"].unique()[j])
+                & (df_noland["sigma0"] == df_noland["sigma0"].unique()[i]),
+                col2,
+            ].values[0]
+            ax.text(
+                j + 0.5,
+                i + 0.3,
+                f"CT: {ct:.2f}s",
+                ha="center",
+                va="center",
+                color="black",
+                fontsize=8,
+            )
+        # Set the ticks and labels for the axes
+        ax.set_xticks(np.arange(len(df_noland["K"].unique())) + 0.5)
+        ax.set_xticklabels(df_noland["K"].unique())
+        ax.set_yticks(np.arange(len(df_noland["sigma0"].unique())) + 0.5)
+        ax.set_yticklabels(df_noland["sigma0"].unique())
+        ax.set_xlabel("Number of Control Points (K)")
+        ax.set_ylabel("Standard Deviation of CMA-ES (sigma0)")
+        ax.set_title(title)
+        plt.colorbar(heatmap, label="Average Percentage of Error")
+        plt.tight_layout()
+
+    # GRAPH 1
+    # color: "avg_percterr_cmaes" (average percentage of error)
+    _helper_experiment_parameter_sensitivity(
+        col1="avg_percterr_cmaes",
+        col2="avg_comp_time_cmaes",
+        cmap="coolwarm",
+        vmin=0,
+        vmax=100,
+        title="Parameter Sensitivity of CMA-ES + Bézier",
+    )
     plt.savefig(folder + "parameter_sensitivity_cmaes.png", dpi=300)
     plt.close()
 
     # GRAPH 2
-    # Plot a heatmap where:
-    # x-axis: "K" (number of control points for Bézier curve)
-    # y-axis: "sigma0" (standard deviation of the CMA-ES distribution)
     # color: "gain_fms" (percentage of gain by FMS compared to CMA-ES)
-    # We place the number on each cell of the heatmap, using white letters
-    # Below each number, we add the computation time too
-    plt.figure(figsize=(8, 6))
-    ax = plt.gca()  # Get current axes
-    heatmap = ax.pcolor(
-        df_noland.pivot(index="sigma0", columns="K", values="avg_gain_fms"),
-        cmap="viridis",
-        edgecolors="k",
-        linewidths=0.5,
+    _helper_experiment_parameter_sensitivity(
+        col1="avg_gain_fms",
+        col2="avg_comp_time_fms",
+        cmap="coolwarm",
         vmin=0,
-        vmax=100,  # Set limits for the color scale
+        vmax=20,
+        title="Average Percentage of Gain by FMS Compared to CMA-ES",
     )
-    # Add the numbers in each cell
-    for (i, j), val in np.ndenumerate(
-        df_noland.pivot(index="sigma0", columns="K", values="avg_gain_fms")
-    ):
-        ax.text(
-            j + 0.5,
-            i + 0.5,
-            f"{val:.2f}%",
-            ha="center",
-            va="center",
-            color="white",
-            fontsize=10,
-        )
-        # Add computation time below the percentage
-        comp_time_fms = df_noland.loc[
-            (df_noland["K"] == df_noland["K"].unique()[j])
-            & (df_noland["sigma0"] == df_noland["sigma0"].unique()[i]),
-            "avg_comp_time_fms",
-        ].values[0]
-        ax.text(
-            j + 0.5,
-            i + 0.3,
-            f"CT: {comp_time_fms:.2f}s",
-            ha="center",
-            va="center",
-            color="black",
-            fontsize=8,
-        )
-    # Set the ticks and labels for the axes
-    ax.set_xticks(np.arange(len(df_noland["K"].unique())) + 0.5)
-    ax.set_xticklabels(df_noland["K"].unique())
-    ax.set_yticks(np.arange(len(df_noland["sigma0"].unique())) + 0.5)
-    ax.set_yticklabels(df_noland["sigma0"].unique())
-    ax.set_xlabel("Number of Control Points (K)")
-    ax.set_ylabel("Standard Deviation of CMA-ES (sigma0)")
-    ax.set_title("Reduction achieve by FMS over CMA-ES by Parameter Settings")
-    plt.colorbar(heatmap, label="Percentage of Gain by FMS")
-    plt.tight_layout()
     plt.savefig(folder + "parameter_sensitivity_fms.png", dpi=300)
     plt.close()
 
     # GRAPH 3
-    # Plot a heatmap where:
-    # x-axis: "K" (number of control points for Bézier curve)
-    # y-axis: "sigma0" (standard deviation of the CMA-ES distribution)
     # color: "avg_percterr_fms" (average percentage of error for BERS)
-    # We place the number on each cell of the heatmap, using white letters
-    # Below each number, we add the computation time too
-    plt.figure(figsize=(8, 6))
-    ax = plt.gca()  # Get current axes
-    heatmap = ax.pcolor(
-        df_noland.pivot(index="sigma0", columns="K", values="avg_percterr_fms"),
-        cmap="viridis_r",
-        edgecolors="k",
-        linewidths=0.5,
+    _helper_experiment_parameter_sensitivity(
+        col1="avg_percterr_fms",
+        col2="avg_comp_time_fms",
+        cmap="coolwarm",
         vmin=0,
-        vmax=100,  # Set limits for the color scale
+        vmax=100,
+        title="Average Percentage of Error for BERS",
     )
-    # Add the numbers in each cell
-    for (i, j), val in np.ndenumerate(
-        df_noland.pivot(index="sigma0", columns="K", values="avg_percterr_fms")
-    ):
-        ax.text(
-            j + 0.5,
-            i + 0.5,
-            f"{val:.2f}%",
-            ha="center",
-            va="center",
-            color="white",
-            fontsize=10,
-        )
-        # Add computation time below the percentage
-        comp_time = df_noland.loc[
-            (df_noland["K"] == df_noland["K"].unique()[j])
-            & (df_noland["sigma0"] == df_noland["sigma0"].unique()[i]),
-            "avg_comp_time",
-        ].values[0]
-        ax.text(
-            j + 0.5,
-            i + 0.3,
-            f"CT: {comp_time:.2f}s",
-            ha="center",
-            va="center",
-            color="black",
-            fontsize=8,
-        )
-    # Set the ticks and labels for the axes
-    ax.set_xticks(np.arange(len(df_noland["K"].unique())) + 0.5)
-    ax.set_xticklabels(df_noland["K"].unique())
-    ax.set_yticks(np.arange(len(df_noland["sigma0"].unique())) + 0.5)
-    ax.set_yticklabels(df_noland["sigma0"].unique())
-    ax.set_xlabel("Number of Control Points (K)")
-    ax.set_ylabel("Standard Deviation of CMA-ES (sigma0)")
-    ax.set_title("Average Percentage of Error for BERS by Parameter Settings")
-    plt.colorbar(heatmap, label="Average Percentage of Error for BERS")
-    plt.tight_layout()
     plt.savefig(folder + "parameter_sensitivity_bers.png", dpi=300)
     plt.close()
 
