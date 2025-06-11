@@ -4,6 +4,207 @@ import pandas as pd
 import typer
 
 
+def experiment_parameter_sensitivity(
+    path_csv: str = "./output/results_noland.csv", folder: str = "./output/"
+):
+    """Plot the results of the BERS experiments by parameter sensitivity.
+
+    Parameters
+    ----------
+    path_csv : str, optional
+        Path to the CSV file containing the results of the experiments,
+        by default "./output/results_noland.csv"
+    folder : str, optional
+        Path to the folder where the plots will be saved, by default "./output/"
+    """
+    # Read the CSV file containing the results of the experiments
+    df_noland = pd.read_csv(path_csv)
+
+    df_noland["gain_fms"] = df_noland["percterr_cmaes"] - df_noland["percterr_fms"]
+
+    # We will group results by "K", "sigma0" and compute their average "percterr_cmaes"
+    df_noland = (
+        df_noland.groupby(["K", "sigma0"])
+        .agg(
+            avg_percterr_cmaes=("percterr_cmaes", "mean"),
+            avg_comp_time_cmaes=("comp_time_cmaes", "mean"),
+            avg_gain_fms=("gain_fms", "mean"),
+            avg_comp_time_fms=("comp_time_fms", "mean"),
+            avg_percterr_fms=("percterr_fms", "mean"),
+            avg_comp_time=("comp_time", "mean"),
+        )
+        .reset_index()
+    )
+
+    # GRAPH 1
+    # Plot a heatmap where:
+    # x-axis: "K" (number of control points for Bézier curve)
+    # y-axis: "sigma0" (standard deviation of the CMA-ES distribution)
+    # color: "avg_percterr_cmaes" (average percentage of error)
+    # We place the number on each cell of the heatmap, using white letters
+    # Below each number, we add the computation time too
+    plt.figure(figsize=(8, 6))
+    ax = plt.gca()  # Get current axes
+    heatmap = ax.pcolor(
+        df_noland.pivot(index="sigma0", columns="K", values="avg_percterr_cmaes"),
+        cmap="viridis_r",
+        edgecolors="k",
+        linewidths=0.5,
+    )
+    # Add the numbers in each cell
+    for (i, j), val in np.ndenumerate(
+        df_noland.pivot(index="sigma0", columns="K", values="avg_percterr_cmaes")
+    ):
+        ax.text(
+            j + 0.5,
+            i + 0.5,
+            f"{val:.2f}%",
+            ha="center",
+            va="center",
+            color="white",
+            fontsize=10,
+        )
+        # Add computation time below the percentage
+        comp_time_cmaes = df_noland.loc[
+            (df_noland["K"] == df_noland["K"].unique()[j])
+            & (df_noland["sigma0"] == df_noland["sigma0"].unique()[i]),
+            "avg_comp_time_cmaes",
+        ].values[0]
+        ax.text(
+            j + 0.5,
+            i + 0.3,
+            f"CT: {comp_time_cmaes:.2f}s",
+            ha="center",
+            va="center",
+            color="black",
+            fontsize=8,
+        )
+    # Set the ticks and labels for the axes
+    ax.set_xticks(np.arange(len(df_noland["K"].unique())) + 0.5)
+    ax.set_xticklabels(df_noland["K"].unique())
+    ax.set_yticks(np.arange(len(df_noland["sigma0"].unique())) + 0.5)
+    ax.set_yticklabels(df_noland["sigma0"].unique())
+    ax.set_xlabel("Number of Control Points (K)")
+    ax.set_ylabel("Standard Deviation of CMA-ES (sigma0)")
+    ax.set_title("Parameter Sensitivity of CMA-ES + Bézier")
+    plt.colorbar(heatmap, label="Average Percentage of Error")
+    plt.tight_layout()
+    plt.savefig(folder + "parameter_sensitivity_cmaes.png", dpi=300)
+    plt.close()
+
+    # GRAPH 2
+    # Plot a heatmap where:
+    # x-axis: "K" (number of control points for Bézier curve)
+    # y-axis: "sigma0" (standard deviation of the CMA-ES distribution)
+    # color: "gain_fms" (percentage of gain by FMS compared to CMA-ES)
+    # We place the number on each cell of the heatmap, using white letters
+    # Below each number, we add the computation time too
+    plt.figure(figsize=(8, 6))
+    ax = plt.gca()  # Get current axes
+    heatmap = ax.pcolor(
+        df_noland.pivot(index="sigma0", columns="K", values="avg_gain_fms"),
+        cmap="viridis",
+        edgecolors="k",
+        linewidths=0.5,
+    )
+    # Add the numbers in each cell
+    for (i, j), val in np.ndenumerate(
+        df_noland.pivot(index="sigma0", columns="K", values="avg_gain_fms")
+    ):
+        ax.text(
+            j + 0.5,
+            i + 0.5,
+            f"{val:.2f}%",
+            ha="center",
+            va="center",
+            color="white",
+            fontsize=10,
+        )
+        # Add computation time below the percentage
+        comp_time_fms = df_noland.loc[
+            (df_noland["K"] == df_noland["K"].unique()[j])
+            & (df_noland["sigma0"] == df_noland["sigma0"].unique()[i]),
+            "avg_comp_time_fms",
+        ].values[0]
+        ax.text(
+            j + 0.5,
+            i + 0.3,
+            f"CT: {comp_time_fms:.2f}s",
+            ha="center",
+            va="center",
+            color="black",
+            fontsize=8,
+        )
+    # Set the ticks and labels for the axes
+    ax.set_xticks(np.arange(len(df_noland["K"].unique())) + 0.5)
+    ax.set_xticklabels(df_noland["K"].unique())
+    ax.set_yticks(np.arange(len(df_noland["sigma0"].unique())) + 0.5)
+    ax.set_yticklabels(df_noland["sigma0"].unique())
+    ax.set_xlabel("Number of Control Points (K)")
+    ax.set_ylabel("Standard Deviation of CMA-ES (sigma0)")
+    ax.set_title("Reduction achieve by FMS over CMA-ES by Parameter Settings")
+    plt.colorbar(heatmap, label="Percentage of Gain by FMS")
+    plt.tight_layout()
+    plt.savefig(folder + "parameter_sensitivity_fms.png", dpi=300)
+    plt.close()
+
+    # GRAPH 3
+    # Plot a heatmap where:
+    # x-axis: "K" (number of control points for Bézier curve)
+    # y-axis: "sigma0" (standard deviation of the CMA-ES distribution)
+    # color: "avg_percterr_fms" (average percentage of error for BERS)
+    # We place the number on each cell of the heatmap, using white letters
+    # Below each number, we add the computation time too
+    plt.figure(figsize=(8, 6))
+    ax = plt.gca()  # Get current axes
+    heatmap = ax.pcolor(
+        df_noland.pivot(index="sigma0", columns="K", values="avg_percterr_fms"),
+        cmap="viridis_r",
+        edgecolors="k",
+        linewidths=0.5,
+    )
+    # Add the numbers in each cell
+    for (i, j), val in np.ndenumerate(
+        df_noland.pivot(index="sigma0", columns="K", values="avg_percterr_fms")
+    ):
+        ax.text(
+            j + 0.5,
+            i + 0.5,
+            f"{val:.2f}%",
+            ha="center",
+            va="center",
+            color="white",
+            fontsize=10,
+        )
+        # Add computation time below the percentage
+        comp_time = df_noland.loc[
+            (df_noland["K"] == df_noland["K"].unique()[j])
+            & (df_noland["sigma0"] == df_noland["sigma0"].unique()[i]),
+            "avg_comp_time",
+        ].values[0]
+        ax.text(
+            j + 0.5,
+            i + 0.3,
+            f"CT: {comp_time:.2f}s",
+            ha="center",
+            va="center",
+            color="black",
+            fontsize=8,
+        )
+    # Set the ticks and labels for the axes
+    ax.set_xticks(np.arange(len(df_noland["K"].unique())) + 0.5)
+    ax.set_xticklabels(df_noland["K"].unique())
+    ax.set_yticks(np.arange(len(df_noland["sigma0"].unique())) + 0.5)
+    ax.set_yticklabels(df_noland["sigma0"].unique())
+    ax.set_xlabel("Number of Control Points (K)")
+    ax.set_ylabel("Standard Deviation of CMA-ES (sigma0)")
+    ax.set_title("Average Percentage of Error for BERS by Parameter Settings")
+    plt.colorbar(heatmap, label="Average Percentage of Error for BERS")
+    plt.tight_layout()
+    plt.savefig(folder + "parameter_sensitivity_bers.png", dpi=300)
+    plt.close()
+
+
 def experiment_land_complexity(
     path_csv: str = "./output/results_land.csv", folder: str = "./output/"
 ) -> None:
@@ -19,6 +220,8 @@ def experiment_land_complexity(
     path_csv : str, optional
         Path to the CSV file containing the results of the experiments,
         by default "./output/results_land.csv"
+    folder : str, optional
+        Path to the folder where the plots will be saved, by default "./output/"
     """
     # Read the CSV file containing the results of the experiments
     df_land = pd.read_csv(path_csv)
@@ -67,10 +270,12 @@ def experiment_land_complexity(
     plt.xticks([1, 2, 3], ["Easy", "Medium", "Hard"])
     plt.tight_layout()
     plt.savefig(folder + "land_complexity.png", dpi=300)
+    plt.close()
 
 
 def main(folder: str = "./output/"):
     """Run the experiments and plot the results."""
+    experiment_parameter_sensitivity(folder=folder)
     experiment_land_complexity(folder=folder)
 
 
