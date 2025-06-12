@@ -94,7 +94,7 @@ def run_param_configuration(
     )
 
     # Check if the route crosses land
-    if land(curve).any():
+    if land(curve).any() or dict_cmaes["cost"] < 0:
         print(f"{idx}: CMA-ES solution crosses land.")
         # Store NaN as cost
         results["cost_cmaes"] = float("nan")
@@ -177,6 +177,13 @@ def build_dataframe(
 
     # Build the dataframe
     df = pd.DataFrame(ls_results)
+
+    # Any negative cost is turned into NaN
+    df["cost_cmaes"] = df["cost_cmaes"].where(df["cost_cmaes"] >= 0, float("nan"))
+    df["cost_fms"] = df["cost_fms"].where(df["cost_fms"] >= 0, float("nan"))
+
+    # Drop rows with NaN costs
+    df = df.dropna(subset=["cost_cmaes", "cost_fms"], how="any")
 
     # Land generation check: under the same conditions, the land should be the same
     # When the land makes source or destination not reachable, the cost is NaN
