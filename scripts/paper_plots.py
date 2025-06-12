@@ -19,6 +19,79 @@ DICT_COST_LITERATURE = {
 }
 
 
+def plot_viable_area(vectorfield: str, config: str = "config.toml", t: float = 0):
+    """Plot the viable area for the given vector field.
+
+    Parameters
+    ----------
+    vectorfield : str
+        The name of the vector field function to use.
+    """
+    # Load the vectorfield function
+    vectorfield_module = __import__(
+        "routetools.vectorfield", fromlist=["vectorfield_" + vectorfield]
+    )
+    vectorfield_fun = getattr(vectorfield_module, "vectorfield_" + vectorfield)
+
+    # Load the config file as a dictionary
+    with open(config, "rb") as f:
+        config = tomllib.load(f)
+    # Extract the vectorfield parameters
+    vfparams = config["vectorfield"][vectorfield]
+
+    xlim = vfparams.get("xlim", (-1, 1))
+    ylim = vfparams.get("ylim", (-1, 1))
+
+    # Create a meshgrid for the vector field
+    x = jnp.linspace(xlim[0], xlim[1], 1000)
+    y = jnp.linspace(ylim[0], ylim[1], 1000)
+    X, Y = jnp.meshgrid(x, y)
+    T = jnp.zeros_like(X) + t
+    # Compute the vector field
+    U, V = vectorfield_fun(X, Y, T)
+    # Compute the module of the vector field
+    module = jnp.sqrt(U**2 + V**2)
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=(8, 8))
+    # Plot the mask as a colormap
+    # We use a colormap that goes from blue (low values) to red (high values)
+    ax.imshow(
+        module,
+        extent=(xlim[0], xlim[1], ylim[0], ylim[1]),
+        origin="lower",
+        cmap="coolwarm",
+        vmin=0,
+        vmax=2,
+    )
+    # Plot the vector field
+    # We will see an arrow every 0.25 units in both directions
+    step = 0.25
+    x = jnp.arange(xlim[0] - step, xlim[1] + step, step)
+    y = jnp.arange(ylim[0] - step, ylim[1] + step, step)
+    X, Y = jnp.meshgrid(x, y)
+    T = jnp.zeros_like(X) + t
+    U, V = vectorfield_fun(X, Y, T)
+    ax.quiver(X, Y, U, V)
+    # Plot source and destination
+    src = jnp.array(vfparams["src"])
+    dst = jnp.array(vfparams["dst"])
+    ax.plot(src[0], src[1], "ro", markersize=10, label="Source")
+    ax.plot(dst[0], dst[1], "go", markersize=10, label="Destination")
+    # Set the axis limits
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    # Set the axis labels
+    ax.set_xlabel("X-axis")
+    ax.set_ylabel("Y-axis")
+    # Set the title
+    ax.set_title(f"Viable Area for {vectorfield} Vector Field")
+    # Show the plot
+    plt.tight_layout()
+    t = str(round(t, 2)).replace(".", "_")  # Replace dot with underscore for filename
+    plt.savefig(f"./output/area_{vectorfield}_{t}.png", dpi=300)
+    plt.close()
+
+
 def run_single_simulation(
     vectorfield: str = "fourvortices",
     cmaes_K: int = 6,
@@ -267,17 +340,25 @@ def experiment_parameter_sensitivity(
     df_noland["cost_reference"] = df_noland["vectorfield"].map(DICT_COST_LITERATURE)
 
     # Choose only the following vectorfields
-    ls_vf = ["circular", "fourvortices", "swirlys"]
+    ls_vf = ["circular", "doublegyre", "fourvortices", "swirlys", "techy"]
     df_noland = df_noland[df_noland["vectorfield"].isin(ls_vf)]
 
     # Compute the difference with the literature cost
     df_noland["diff_cmaes"] = 1 - df_noland["cost_cmaes"] / df_noland["cost_reference"]
     df_noland["diff_fms"] = 1 - df_noland["cost_fms"] / df_noland["cost_reference"]
+    df_noland["niter"] = df_noland["niter_cmaes"] + df_noland["niter_fms"]
+
+    # Compute the mean of all these values, grouped by vectorfield, K, and sigma0
+    df_noland = df_noland.groupby(
+        ["vectorfield", "K", "sigma0"],
+        as_index=False,
+    ).mean(numeric_only=True)
 
     def _helper_experiment_parameter_sensitivity(
         col1: str,
         col2: str,
         title: str = "",
+        limits2: tuple = (0, 500),  # Limits for col2 heatmap
     ):
         # Plot multiple heatmaps in a single figure:
         # First row: col1 for each vectorfield
@@ -304,8 +385,8 @@ def experiment_parameter_sensitivity(
                 cmap="bwr_r",
                 aspect="equal",
                 # Center the map around zero
-                vmin=-1.5,
-                vmax=1.5,
+                vmin=-0.5,
+                vmax=0.5,
             )
             axs[0, i].set_title(vfname)
             axs[0, i].set_xlabel("K (Control Points)")
@@ -321,8 +402,8 @@ def experiment_parameter_sensitivity(
                 heatmap_data,
                 cmap="Reds",
                 aspect="equal",
-                vmin=0,
-                vmax=10,
+                vmin=limits2[0],
+                vmax=limits2[1],  # Set limits for col2 heatmap
             )
             axs[1, i].set_title(vfname)
             axs[1, i].set_xlabel("K (Control Points)")
@@ -347,15 +428,19 @@ def experiment_parameter_sensitivity(
             fraction=0.02,
             location="right",
         )
-        cbar2.set_label("Computation time (s)")
+        cbar2.set_label("Number of iterations")
 
     # GRAPH 1
-    _helper_experiment_parameter_sensitivity(col1="diff_cmaes", col2="comp_time_cmaes")
+    _helper_experiment_parameter_sensitivity(
+        col1="diff_cmaes", col2="niter_cmaes", limits2=[0, 200]
+    )
     plt.savefig(folder + "parameter_sensitivity_cmaes.png", dpi=300)
     plt.close()
 
     # GRAPH 2
-    _helper_experiment_parameter_sensitivity(col1="diff_fms", col2="comp_time")
+    _helper_experiment_parameter_sensitivity(
+        col1="diff_fms", col2="niter", limits2=[0, 5000]
+    )
     plt.savefig(folder + "parameter_sensitivity_bers.png", dpi=300)
     plt.close()
 
@@ -448,6 +533,12 @@ def experiment_land_complexity(
 
 def main(folder: str = "./output/"):
     """Run the experiments and plot the results."""
+    for t in [0, 0.2, 0.5, 0.7, 1.0]:
+        print(f"\n---\nVIABLE AREA FOR TECHY VECTOR FIELD AT t={t}\n---")
+        plot_viable_area("techy", t=t)
+    plot_viable_area("fourvortices")
+    plot_viable_area("circular")
+    plot_viable_area("doublegyre")
     print("---\nSINGLE SIMULATION\n---")
     # run_single_simulation(path_img=folder)
     print("\n---\nBIGGEST FMS GAINS\n---")
