@@ -10,7 +10,7 @@ from routetools.cmaes import optimize
 from routetools.fms import optimize_fms
 from routetools.plot import plot_curve, plot_route_from_json
 
-COST_LITERATURE = {
+DICT_COST_LITERATURE = {
     "circular": 1.98,
     "fourvortices": 8.95,
     "doublegyre": 1.01,
@@ -153,66 +153,44 @@ def run_single_simulation(
     plt.close(fig)
 
 
-def plot_best_no_land(
-    path_csv: str = "./output/results_noland.csv", folder: str = "./output/"
+def plot_best_values(
+    path_csv: str = "./output/results_noland.csv",
+    folder: str = "./output/",
+    col: str = "gain_fms",
+    ascending: bool = False,
+    size: int = 2,
 ):
-    """Generate plots for the best examples without land avoidance.
+    """Generate plots for the examples with the highest values.
 
     Parameters
     ----------
+    path_csv : str, optional
+        Path to the CSV file containing the results of the experiments,
+        by default "./output/results_noland.csv"
     folder : str, optional
         The directory containing the results CSV file and JSON files,
         by default "output".
+    col : str, optional
+        The column to sort by, by default "gain_fms".
+    ascending : bool, optional
+        Whether to sort the values in ascending order, by default False.
+    size : int, optional
+        The number of top examples to plot per vectorfield, by default 2.
     """
     df = pd.read_csv(path_csv)
 
-    # Filter the rows with highest "gain_fms", grouped by vectorfield
-    df_filtered = (
-        df.groupby("vectorfield")[["vectorfield", "json", "gain_fms"]]
-        .apply(lambda x: x.nlargest(1, "gain_fms"))
-        .reset_index(drop=True)
-        .sort_values("gain_fms", ascending=False)
+    # Filter the rows with highest col, grouped by vectorfield
+    df_filtered = df.groupby("vectorfield")[["vectorfield", "json", col]].apply(
+        lambda x: x.nsmallest(size, col) if ascending else x.nlargest(size, col)
     )
 
     # Plot the top examples
-    for idx in df_filtered.index:
-        row = df_filtered.iloc[idx]
-        vf = row["vectorfield"]
+    for multiidx, row in df_filtered.iterrows():
+        vf, idx = multiidx
         json_id = int(row["json"])
-        print(f"Best without land avoidance: processing {json_id}...")
+        print(f"Best {col}: processing {json_id}...")
         fig, ax = plot_route_from_json(f"{folder}/noland/{json_id:06d}.json")
-        fig.savefig(f"{folder}/best_{vf}.png")
-        plt.close(fig)
-
-
-def plot_biggest_difference(
-    path_csv: str = "./output/results_noland.csv", folder: str = "./output/"
-):
-    """Generate plots for the examples with the biggest FMS savings.
-
-    Parameters
-    ----------
-    folder : str, optional
-        The directory containing the results CSV file and JSON files,
-        by default "output".
-    """
-    df = pd.read_csv(path_csv)
-
-    # Filter the rows with highest "gain_fms", grouped by vectorfield
-    df_filtered = (
-        df.groupby("vectorfield")[["json", "vectorfield", "gain_fms"]]
-        .apply(lambda x: x.nlargest(2, "gain_fms"))
-        .reset_index(drop=True)
-        .sort_values("gain_fms", ascending=False)
-    )
-
-    # Plot the top examples
-    for idx in df_filtered.index:
-        row = df_filtered.iloc[idx]
-        json_id = int(row["json"])
-        print(f"Biggest FMS savings: processing {json_id}...")
-        fig, ax = plot_route_from_json(f"{folder}/noland/{json_id:06d}.json")
-        fig.savefig(f"{folder}/biggest_fms_{idx}.png")
+        fig.savefig(f"{folder}/{col}_{vf}_{idx}.png")
         plt.close(fig)
 
 
@@ -250,7 +228,7 @@ def plot_land_avoidance(
 
     # Generate plots for the worst ten examples
     idx = 0
-    for complexity, df_sub in df_land.groupby("complexity"):
+    for _, df_sub in df_land.groupby("complexity"):
         # Sort by gain
         df_sub = df_sub.sort_values("gain_fms", ascending=True)
         # Take the worst three examples
@@ -286,7 +264,7 @@ def experiment_parameter_sensitivity(
     df_noland = pd.read_csv(path_csv)
 
     # Assign literature cost using "vectorfield"
-    df_noland["cost_reference"] = df_noland["vectorfield"].map(COST_LITERATURE)
+    df_noland["cost_reference"] = df_noland["vectorfield"].map(DICT_COST_LITERATURE)
 
     # Choose only the following vectorfields
     ls_vf = ["fourvortices", "swirlys"]
@@ -520,10 +498,10 @@ def main(folder: str = "./output/"):
     """Run the experiments and plot the results."""
     print("---\nSINGLE SIMULATION\n---")
     # run_single_simulation(path_img=folder)
-    print("\n---\nBEST EXAMPLES WITHOUT LAND AVOIDANCE\n---")
-    # plot_best_no_land(folder=folder)
-    print("\n---\nBIGGEST FMS SAVINGS\n---")
-    plot_biggest_difference(folder=folder)
+    print("\n---\nBIGGEST FMS GAINS\n---")
+    plot_best_values(folder=folder, col="gain_fms", ascending=False, size=2)
+    print("\n---\nBIGGEST BERS SAVINGS\n---")
+    plot_best_values(folder=folder, col="cost_fms", ascending=True, size=2)
     print("\n---\nLAND AVOIDANCE ANALYSIS\n---")
     plot_land_avoidance(folder=folder)
     print("\n---\nPARAMETER SENSITIVITY EXPERIMENTS\n---")

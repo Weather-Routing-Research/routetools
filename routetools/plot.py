@@ -17,6 +17,14 @@ DICT_COLOR = {
     "FMS": "green",
 }
 
+DICT_VF_NAMES = {
+    "circular": "Circular",
+    "fourvortices": "Four Vortices",
+    "doublegyre": "Double Gyre",
+    "techy": "Techy",
+    "swirlys": "Swirlys",
+}
+
 
 def plot_curve(
     vectorfield: Callable[
@@ -219,7 +227,7 @@ def plot_route_from_json(path_json: str) -> tuple[Figure, Axes]:
     )
     # Set the title and tight layout
     if water_level == 1:
-        title = vfname
+        title = DICT_VF_NAMES.get(vfname, vfname)
     else:
         title = (
             f"Water level: {water_level} | Resolution: {resolution} | "

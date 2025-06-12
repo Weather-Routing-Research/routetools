@@ -16,7 +16,7 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "typer-slim",
-    "jax[cuda12]>=0.4.33",
+    "jax>=0.4.33",
     "matplotlib>=3.9.2",
     "cma>=4.0.0",
     "pytest>=8.3.2",
@@ -92,5 +92,8 @@ dev-dependencies = [
     "pre-commit",
     "ipykernel",
 ]
+
+[project.optional-dependencies]
+cuda = ["jax[cuda]>=0.4.33"]
 
 
