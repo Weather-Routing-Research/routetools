@@ -116,7 +116,7 @@ def plot_curve(
             curve[:, 0],
             curve[:, 1],
             marker="o",
-            markersize=2,
+            markersize=1,
             label=label,
             zorder=2,
             color=color,

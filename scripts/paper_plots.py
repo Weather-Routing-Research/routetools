@@ -1,6 +1,7 @@
 import tomllib
 
 import jax.numpy as jnp
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -263,7 +264,7 @@ def plot_best_values(
         json_id = int(row["json"])
         print(f"Best {col}: processing {json_id}...")
         fig, ax = plot_route_from_json(f"{folder}/noland/{json_id:06d}.json")
-        fig.savefig(f"{folder}/{col}_{vf}_{idx}.png")
+        fig.savefig(f"{folder}/{vf}_{json_id}.png")
         plt.close(fig)
 
 
@@ -300,24 +301,18 @@ def plot_land_avoidance(
     df_land = df_land.dropna(subset=["complexity"])
 
     # Generate plots for the worst ten examples
-    idx = 0
     for _, df_sub in df_land.groupby("complexity"):
-        # Sort by gain
-        df_sub = df_sub.sort_values("gain_fms", ascending=True)
-        # Take the worst three examples
-        df_worst = df_sub.tail(3)
-        for _, row in df_worst.iterrows():
-            # Extract the configuration parameters
-
+        # Take three random values (fixed random seed for reproducibility)
+        df_random = df_sub.sample(n=3, random_state=1)
+        for _, row in df_random.iterrows():
             # Load the JSON file for the identified example
             json_id = int(row["json"])
             print(f"Land avoidance: processing {json_id}...")
 
             # Print what was the CMA-ES configuration
             fig, ax = plot_route_from_json(f"{folder}/land/{json_id:06d}.json")
-            fig.savefig(f"{folder}/land_avoidance_{idx}.png")
+            fig.savefig(f"{folder}/land_{json_id}.png")
             plt.close(fig)
-            idx += 1
 
 
 def experiment_parameter_sensitivity(
@@ -380,9 +375,11 @@ def experiment_parameter_sensitivity(
             # Pivot the DataFrame to create a heatmap
             heatmap_data = df_vf.pivot(index="sigma0", columns="K", values=col1)
             # Plot the heatmap for col1
+            cmap = matplotlib.cm.bwr_r
+            cmap.set_bad("black", 1.0)
             im1 = axs[0, i].imshow(
                 heatmap_data,
-                cmap="bwr_r",
+                cmap=cmap,
                 aspect="equal",
                 # Center the map around zero
                 vmin=-0.5,
@@ -398,9 +395,11 @@ def experiment_parameter_sensitivity(
 
             # Plot the heatmap for col2
             heatmap_data = df_vf.pivot(index="sigma0", columns="K", values=col2)
+            cmap = matplotlib.cm.Reds
+            cmap.set_bad("black", 1.0)
             im2 = axs[1, i].imshow(
                 heatmap_data,
-                cmap="Reds",
+                cmap=cmap,
                 aspect="equal",
                 vmin=limits2[0],
                 vmax=limits2[1],  # Set limits for col2 heatmap
@@ -533,6 +532,8 @@ def experiment_land_complexity(
 
 def main(folder: str = "./output/"):
     """Run the experiments and plot the results."""
+    print("\n---\nPARAMETER SENSITIVITY EXPERIMENTS\n---")
+    experiment_parameter_sensitivity(folder=folder)
     for t in [0, 0.2, 0.5, 0.7, 1.0]:
         print(f"\n---\nVIABLE AREA FOR TECHY VECTOR FIELD AT t={t}\n---")
         plot_viable_area("techy", t=t)
@@ -542,13 +543,11 @@ def main(folder: str = "./output/"):
     print("---\nSINGLE SIMULATION\n---")
     run_single_simulation(path_img=folder)
     print("\n---\nBIGGEST FMS GAINS\n---")
-    plot_best_values(folder=folder, col="gain_fms", ascending=False, size=2)
+    plot_best_values(folder=folder, col="gain_fms", ascending=False, size=4)
     print("\n---\nBIGGEST BERS SAVINGS\n---")
-    plot_best_values(folder=folder, col="cost_fms", ascending=True, size=2)
+    plot_best_values(folder=folder, col="cost_fms", ascending=True, size=4)
     print("\n---\nLAND AVOIDANCE ANALYSIS\n---")
     plot_land_avoidance(folder=folder)
-    print("\n---\nPARAMETER SENSITIVITY EXPERIMENTS\n---")
-    experiment_parameter_sensitivity(folder=folder)
     print("\n---\nLAND COMPLEXITY EXPERIMENTS\n---")
     experiment_land_complexity(folder=folder)
 
