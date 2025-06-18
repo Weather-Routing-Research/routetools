@@ -269,7 +269,9 @@ def plot_best_values(
 
 
 def plot_land_avoidance(
-    path_csv: str = "./output/results_land.csv", folder: str = "./output/"
+    path_csv: str = "./output/results_land.csv",
+    folder: str = "./output/",
+    size: int = 3,
 ):
     """
     Generate and save plots for land avoidance analysis based on simulation results.
@@ -303,7 +305,7 @@ def plot_land_avoidance(
     # Generate plots for the worst ten examples
     for _, df_sub in df_land.groupby("complexity"):
         # Take three random values (fixed random seed for reproducibility)
-        df_random = df_sub.sample(n=3, random_state=1)
+        df_random = df_sub.sample(n=size, random_state=1)
         for _, row in df_random.iterrows():
             # Load the JSON file for the identified example
             json_id = int(row["json"])
@@ -364,7 +366,7 @@ def experiment_parameter_sensitivity(
         # color: col1 or col2 (depending on the heatmap)
         num_cols = len(ls_vf)
         fig, axs = plt.subplots(
-            nrows=2, ncols=num_cols, figsize=(num_cols * 4, 8), sharex=True, sharey=True
+            nrows=2, ncols=num_cols, figsize=(num_cols * 2, 4), sharex=True, sharey=True
         )
         fig.suptitle(title, fontsize=16)
         for i, vf in enumerate(ls_vf):
@@ -386,8 +388,8 @@ def experiment_parameter_sensitivity(
                 vmax=0.5,
             )
             axs[0, i].set_title(vfname)
-            axs[0, i].set_xlabel("K (Control Points)")
-            axs[0, i].set_ylabel(r"$\sigma_0$ (Standard Deviation)")
+            if i == 0:
+                axs[0, i].set_ylabel(r"$\sigma_0$")
             axs[0, i].set_xticks(np.arange(len(heatmap_data.columns)))
             axs[0, i].set_xticklabels(heatmap_data.columns)
             axs[0, i].set_yticks(np.arange(len(heatmap_data.index)))
@@ -404,9 +406,9 @@ def experiment_parameter_sensitivity(
                 vmin=limits2[0],
                 vmax=limits2[1],  # Set limits for col2 heatmap
             )
-            axs[1, i].set_title(vfname)
-            axs[1, i].set_xlabel("K (Control Points)")
-            axs[1, i].set_ylabel(r"$\sigma_0$ (Standard Deviation)")
+            axs[1, i].set_xlabel("K")
+            if i == 0:
+                axs[1, i].set_ylabel(r"$\sigma_0$")
             axs[1, i].set_xticks(np.arange(len(heatmap_data.columns)))
             axs[1, i].set_xticklabels(heatmap_data.columns)
             axs[1, i].set_yticks(np.arange(len(heatmap_data.index)))
@@ -489,13 +491,13 @@ def experiment_land_complexity(
     # Vertical axis: "cost_fms"
     # We also overlay a line showing the average "comp_time" for each complexity level
     # Use a second y-axis for the average "comp_time" line
-    plt.figure(figsize=(8, 4))
+    plt.figure(figsize=(6, 3))
 
     ax = plt.gca()  # Get current axes
     ax = df_land.boxplot(
         column="cost_fms", by="complexity", grid=False, showfliers=False, ax=ax
     )
-    ax.set_ylim(8.5, 11.5)
+    ax.set_ylim(8.5, 12)
     ax.set_xlabel("Land Complexity Level (affects resolution and water level)")
     ax.set_ylabel("Travel time")
     ax.set_title("Results of BERS by Land Complexity Level")
@@ -532,24 +534,25 @@ def experiment_land_complexity(
 
 def main(folder: str = "./output/"):
     """Run the experiments and plot the results."""
+    print("---\nSINGLE SIMULATION\n---")
+    run_single_simulation("fourvortices", path_img=folder)
+    run_single_simulation("swirlys", path_img=folder)
     print("\n---\nPARAMETER SENSITIVITY EXPERIMENTS\n---")
     experiment_parameter_sensitivity(folder=folder)
+    print("\n---\nLAND COMPLEXITY EXPERIMENTS\n---")
+    experiment_land_complexity(folder=folder)
+    print("\n---\nBIGGEST FMS GAINS\n---")
+    plot_best_values(folder=folder, col="gain_fms", ascending=False, size=4)
+    print("\n---\nBIGGEST BERS SAVINGS\n---")
+    plot_best_values(folder=folder, col="cost_fms", ascending=True, size=4)
+    print("\n---\nLAND AVOIDANCE ANALYSIS\n---")
+    plot_land_avoidance(folder=folder, size=10)
     for t in [0, 0.2, 0.5, 0.7, 1.0]:
         print(f"\n---\nVIABLE AREA FOR TECHY VECTOR FIELD AT t={t}\n---")
         plot_viable_area("techy", t=t)
     plot_viable_area("fourvortices")
     plot_viable_area("circular")
     plot_viable_area("doublegyre")
-    print("---\nSINGLE SIMULATION\n---")
-    run_single_simulation(path_img=folder)
-    print("\n---\nBIGGEST FMS GAINS\n---")
-    plot_best_values(folder=folder, col="gain_fms", ascending=False, size=4)
-    print("\n---\nBIGGEST BERS SAVINGS\n---")
-    plot_best_values(folder=folder, col="cost_fms", ascending=True, size=4)
-    print("\n---\nLAND AVOIDANCE ANALYSIS\n---")
-    plot_land_avoidance(folder=folder)
-    print("\n---\nLAND COMPLEXITY EXPERIMENTS\n---")
-    experiment_land_complexity(folder=folder)
 
 
 if __name__ == "__main__":
