@@ -523,7 +523,7 @@ def experiment_land_complexity(
     ax2.set_ylim(0, 30)
 
     # Add a grid
-    ax.grid(True, which="both", linestyle="--", linewidth=0.5)
+    # ax.grid(True, which="both", linestyle="--", linewidth=0.5)
 
     plt.suptitle("")
     plt.xticks([1, 2, 3], ["Easy", "Medium", "Hard"])
